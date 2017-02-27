@@ -62,7 +62,7 @@ public:
     }
     double waning(){
         if(m_infectionStatus=='R'){
-            return std::max(1.0,3*pow(m_titerLevel,-.75));
+            return std::max(1.0, 3*pow(m_titerLevel,-.75));
         }
         else{
             return 0.0;
@@ -139,157 +139,157 @@ int main(){
     
     //events
     for(int k=0;k<numSims;++k){
-    //resets sums after each simulation
-    int sSum =0;
-    int iSum=0;
-    int vSum=0;
-    int rSum=0;
-    double time =0.0;
-    double ageSum=0;
-    double waneSum=0;
-    double infectionSum=0;
-    double vaccinationSum=0;
-    for(int i=0;i<numPeople;++i){
-        //first get total num in each class
-        switch(individual[i].getInfectionStatus()){
+        //resets sums after each simulation
+        int sSum =0;
+        int iSum=0;
+        int vSum=0;
+        int rSum=0;
+        double time =0.0;
+        double ageSum=0;
+        double waneSum=0;
+        double infectionSum=0;
+        double vaccinationSum=0;
+        for(int i=0;i<numPeople;++i){
+            //first get total num in each class
+            switch(individual[i].getInfectionStatus()){
                 case 'S':
-                sSum+=(1/individual[i].getTiterLevel()); //lower titer level=more susc
-                break;
+                    sSum+=(1/individual[i].getTiterLevel()); //lower titer level=more susc
+                    break;
                 case 'I':
-                iSum+=1;
-                break;
+                    iSum+=1;
+                    break;
                 case 'V':
-                vSum+=1;
+                    vSum+=1;
+                    break;
                 case 'R':
-                rSum+=1;
-                break;
-        }
-        //get total aging rate
-        ageSum+=(1/individual[i].getAge());
-        //get total waning rate
-        waneSum+=individual[i].waning();
-        //get total infection rate
-        infectionSum+=individual[i].probInfGivenDose(infDose);
-        //get total vaccination rate
-        if(individual[i].getAge()==1){
-            vaccinationSum+=individual[i].probInfGivenDose(vaccDose);
-        }
-        
-    }
-    
-    // get total WPV recovery rate
-    double recoverInfSum = recoverInf*iSum;
-   //get total OPV recovery rate
-    double recoverVaccSum = recoverVacc*vSum;
-    
-    //sum all rates and choose the event that will occur
-    double eventSum = ageSum + infectionSum + vaccinationSum + recoverInfSum + recoverVaccSum + waneSum;
-    double r4=dis(gen);
+                    rSum+=1;
+                    break;
+            }
+            //get total aging rate
+            ageSum += 1.0/individual[i].getAge();
+            //get total waning rate
+            waneSum += individual[i].waning();
+            //get total infection rate
+            infectionSum += individual[i].probInfGivenDose(infDose);
+            //get total vaccination rate
+            if(individual[i].getAge()==1){
+                vaccinationSum+=individual[i].probInfGivenDose(vaccDose);
+            }
 
-    //chooses WPV infection to occur
-    if(r4<(infectionSum/eventSum)){
-        //now choose the individual to which the infection will occur
-        std::cout<<"infection\n";
-        double r5=dis(gen);
-        double sum=0.0;
-        for(int i =0;i<numPeople;++i){
-            if(r5<(sum+(individual[i].probInfGivenDose(infDose)/infectionSum))){
-                individual[i].setInfectionStatus('I');
-                individual[i].setTimeSinceInfection(0.0);
-                individual[i].setTiterLevel(2048.0);//boosts to max titer level
-                break;
-            }
-            sum+=(individual[i].probInfGivenDose(infDose)/infectionSum);
         }
-    }
-    //chooses recovery from WPV to occur
-    else if(r4<((recoverInfSum+infectionSum)/eventSum)){
-        //now choose the individual that will recover
-        std::cout<<"recover\n";
-        for(int i=0;i<numPeople;++i){//.11 is 40 days
-            if(individual[i].getTimeSinceInfection()>0.11&&individual[i].getInfectionStatus()=='I'){
-                individual[i].setInfectionStatus('R');
-                break;
+
+        // get total WPV recovery rate
+        double recoverInfSum = recoverInf*iSum;
+        //get total OPV recovery rate
+        double recoverVaccSum = recoverVacc*vSum;
+
+        //sum all rates and choose the event that will occur
+        double eventSum = ageSum + infectionSum + vaccinationSum + recoverInfSum + recoverVaccSum + waneSum;
+        double r4 = dis(gen);
+
+        //chooses WPV infection to occur
+        if(r4 < (infectionSum/eventSum)){
+            //now choose the individual to which the infection will occur
+            std::cout<<"infection\n";
+            double r5=dis(gen);
+            double sum=0.0;
+            for(int i =0;i<numPeople;++i){
+                if(r5<(sum+(individual[i].probInfGivenDose(infDose)/infectionSum))){
+                    individual[i].setInfectionStatus('I');
+                    individual[i].setTimeSinceInfection(0.0);
+                    individual[i].setTiterLevel(2048.0);//boosts to max titer level
+                    break;
+                }
+                sum+=(individual[i].probInfGivenDose(infDose)/infectionSum);
             }
-            
-            
         }
-    }
-    //chooses waning to occur
-    else if(r4<((waneSum+recoverInfSum+infectionSum)/eventSum)){
-        //now choose the individual whose immunity wanes
-        std::cout<<"wane\n";
-        double r6=dis(gen);
-        double sum=0.0;
-        for(int i=0;i<numPeople;++i){
-            if(r6<(sum+(individual[i].waning()/waneSum))){
-                individual[i].setTiterLevel(individual[i].waning());
-                individual[i].setInfectionStatus('S');
-                break;
+        //chooses recovery from WPV to occur
+        else if(r4<((recoverInfSum+infectionSum)/eventSum)){
+            //now choose the individual that will recover
+            std::cout<<"recover\n";
+            for(int i=0;i<numPeople;++i){//.11 is 40 days
+                if(individual[i].getTimeSinceInfection()>0.11 and individual[i].getInfectionStatus()=='I'){
+                    individual[i].setInfectionStatus('R');
+                    break;
+                }
+
+
             }
-            sum+=(individual[i].waning()/waneSum);
         }
-    }
-    //chooses vaccination to occur
-    else if(r4<((vaccinationSum+waneSum+recoverInfSum+infectionSum)/eventSum)){
-        std::cout<<"vacc\n";
-        //now choose the individual to which the vaccination occurs
-        double r8 = dis(gen);
-        double sum =0.0;
-        for(int i=0;i<numPeople;++i){
-            if(r8<(sum+(individual[i].probInfGivenDose(vaccDose)/vaccinationSum))){
-                individual[i].setInfectionStatus('V');
-                individual[i].setTimeSinceInfection(0.0);
-                individual[i].setTiterLevel(2048.0); //set to max titer level
-                break;
+        //chooses waning to occur
+        else if(r4<((waneSum+recoverInfSum+infectionSum)/eventSum)){
+            //now choose the individual whose immunity wanes
+            std::cout<<"wane\n";
+            double r6=dis(gen);
+            double sum=0.0;
+            for(int i=0;i<numPeople;++i){
+                if(r6<(sum+(individual[i].waning()/waneSum))){
+                    individual[i].setTiterLevel(individual[i].waning());
+                    individual[i].setInfectionStatus('S');
+                    break;
+                }
+                sum+=(individual[i].waning()/waneSum);
             }
-            sum+=(individual[i].probInfGivenDose(vaccDose)/vaccinationSum);
         }
-    }
-    //chooses recover from vaccination to occur
-    else if(r4<((recoverVaccSum+vaccinationSum+waneSum+recoverInfSum+infectionSum)/eventSum)){
-        std::cout<<"recover from vacc\n";
-        //now choose individual that recovers from OPV
-        //double r9 = dis(gen);
-        for(int i=0;i<numPeople;++i){//.11 is 40 days
-            if(individual[i].getTimeSinceInfection()>.11&&individual[i].getInfectionStatus()=='V'){
-                individual[i].setInfectionStatus('R');
-                break;
+        //chooses vaccination to occur
+        else if(r4<((vaccinationSum+waneSum+recoverInfSum+infectionSum)/eventSum)){
+            std::cout<<"vacc\n";
+            //now choose the individual to which the vaccination occurs
+            double r8 = dis(gen);
+            double sum =0.0;
+            for(int i=0;i<numPeople;++i){
+                if(r8<(sum+(individual[i].probInfGivenDose(vaccDose)/vaccinationSum))){
+                    individual[i].setInfectionStatus('V');
+                    individual[i].setTimeSinceInfection(0.0);
+                    individual[i].setTiterLevel(2048.0); //set to max titer level
+                    break;
+                }
+                sum+=(individual[i].probInfGivenDose(vaccDose)/vaccinationSum);
             }
-            
         }
-    }
-    //chooses aging to occur
-    else{
-        //now choose which individual will age
-        std::cout<<"age\n";
-        double r7 = dis(gen);
-        double sum = 0.0;
-        for(int i =0;i<numPeople;++i){
-            if(r7<(sum+(individual[i].getAge()/ageSum))){
-            individual[i].setAge((individual[i].getAge()+1));
-                break;
+        //chooses recover from vaccination to occur
+        else if(r4<((recoverVaccSum+vaccinationSum+waneSum+recoverInfSum+infectionSum)/eventSum)){
+            std::cout<<"recover from vacc\n";
+            //now choose individual that recovers from OPV
+            //double r9 = dis(gen);
+            for(int i=0;i<numPeople;++i){//.11 is 40 days
+                if(individual[i].getTimeSinceInfection()>.11&&individual[i].getInfectionStatus()=='V'){
+                    individual[i].setInfectionStatus('R');
+                    break;
+                }
+
             }
-            sum+=(individual[i].getAge()/ageSum);
         }
-    }
+        //chooses aging to occur
+        else{
+            //now choose which individual will age
+            std::cout<<"age\n";
+            double r7 = dis(gen);
+            double sum = 0.0;
+            for(int i =0;i<numPeople;++i){
+                if(r7<(sum+(individual[i].getAge()/ageSum))){
+                    individual[i].setAge((individual[i].getAge()+1));
+                    break;
+                }
+                sum+=(individual[i].getAge()/ageSum);
+            }
+        }
         //generate exp rn
         std::exponential_distribution<>rng((eventSum));
         double t1 = rng(gen);
-        
-    //update all individual's time since infection
+
+        //update all individual's time since infection
         for(int i=0;i<numPeople;++i){
             individual[i].setTimeSinceInfection(t1);
         }
-    //update simulation time
+        //update simulation time
         time+=t1;
-    std::cout<<time<<"\n";
-    for(int i=0;i<numPeople;++i){
-        individual[i].print(i);
+        std::cout<<time<<"\n";
+        for(int i=0;i<numPeople;++i){
+            individual[i].print(i);
+        }
     }
-    
-    }
-    
+
     return 0;
 }
 
