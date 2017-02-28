@@ -200,7 +200,7 @@ int main(){
                     if(r5<(sum+(individual[i].probInfGivenDose(infDose)/infectionSum))){
                         individual[i].setInfectionStatus('I');
                         individual[i].setTimeSinceInfection(0.0);
-                        individual[i].setTiterLevel(2048.0);//boosts to max titer level
+                        individual[i].setTiterLevel(std::min(2048.0,11.0*individual[i].getTiterLevel()));//boost 10 fold 
                         chosenEventSum = infectionSum;
                         break;
                     }
@@ -247,7 +247,7 @@ int main(){
                     if(r8<(sum+(individual[i].probInfGivenDose(vaccDose)/vaccinationSum))){
                         individual[i].setInfectionStatus('V');
                         individual[i].setTimeSinceInfection(0.0);
-                        individual[i].setTiterLevel(2048.0); //set to max titer level
+                        individual[i].setTiterLevel(std::min(2048.0,11.0*individual[i].getTiterLevel()));//boost 10 fold increase
                         chosenEventSum = vaccinationSum;
                         break;
                     }
