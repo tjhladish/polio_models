@@ -1,6 +1,6 @@
 #include "EventDriven_MassAction_Sim.h"
 
-<<<<<<< HEAD
+
 
 
 int main() {
@@ -24,20 +24,7 @@ int main() {
        vecSumm+=sim.FinalTime();
     }
     cout<<(vecSumm/numSims)<<"\n";//avg time to extinction
-=======
-int main() { 
 
-    int N        = 1000000;
-    double GAMMA = 1/(double) 6;
-    double BETA  = 1/(double) 4;
-
-    for(int i=0; i<5; i++ ) {
-        EventDriven_MassAction_Sim sim(N,GAMMA,BETA);
-        sim.rand_infect(100);
-        sim.run_simulation();
-        cout << sim.epidemic_size() << endl;
-    }
->>>>>>> ec27e3c4b803ef378741285cd9ebebc7c8ee5a45
 
     return 0;
 }
