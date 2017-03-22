@@ -136,11 +136,17 @@ class Person{
 class EventDriven_MassAction_Sim {
     public:
                                     // constructor
-        EventDriven_MassAction_Sim(const int n, const double gamma, const double beta, const double kappa, const double rho, const double birth, const double death): N(n), rng((random_device())()), GAMMA(gamma), BETA(beta), KAPPA(kappa), RHO(rho), BIRTH(birth), DEATH(death), unif_real(0.0,1.0),unif_int(1,n-1){
-            //static constexpr int arraySize=5;
+        EventDriven_MassAction_Sim(const int n, const double gamma, const double beta, const double kappa, const double rho, const double birth, const double death): rng((random_device())()), GAMMA(gamma), BETA(beta), KAPPA(kappa), RHO(rho), BIRTH(birth), DEATH(death), unif_real(0.0,1.0),unif_int(1,n-1){
+            previousTime = {0};
+            people = vector<Person*>(n);
+            for (Person* &p: people) p = new Person;
+            Now=0.0;
         }
 
-        const int N;// population size
+        ~EventDriven_MassAction_Sim() {
+            for (Person* &p: people) delete p;
+        }
+
         const double GAMMA;
         const double BETA;
         const double KAPPA;
@@ -149,7 +155,6 @@ class EventDriven_MassAction_Sim {
         const double DEATH;
         const double infDose=5; //number of doses from WPV infection
         const double vaccDose=3; //number of doses from OPV vacc
-        static const int arraySize=5;//**can't seem to make 5 a variable***
     
 
         exponential_distribution<double> exp_gamma;
@@ -161,10 +166,10 @@ class EventDriven_MassAction_Sim {
     
 
         //create fixed array of number of individuals in population
-        array<Person,arraySize> individual;
-        array<double,1>previousTime{0};
+        vector<Person*> people;
+        array<double,1>previousTime;
 
-        double Now=0.0;                 // Current "time" in simulation
+        double Now;                 // Current "time" in simulation
         vector<double>finalTime;
     
         void runSimulation(){
@@ -179,33 +184,32 @@ class EventDriven_MassAction_Sim {
     
         void randomizePopulation(int k,int j){
         //temporary initial conditions: these can be changed at a later date
-            for(int i=0;i<arraySize;i++){
+            for(Person* p: people) {
                 double rr=unif_real(rng);
                 if(rr<0.3){
-                    individual[i].setAge(1);
+                    p->setAge(1);
                 }
                 else if(rr<.6){
-                    individual[i].setAge(2);
+                    p->setAge(2);
                 }
                 else{
-                    individual[i].setAge(3);
+                    p->setAge(3);
                 }
-                individual[i].setTimeSinceInfection(unif_real(rng));
-                individual[i].setTiterLevel(100.0);
+                p->setTimeSinceInfection(unif_real(rng));
+                p->setTiterLevel(100.0);
             }
             for(int i=0;i<k;++i){
-                infect(individual[i]);//does it matter which individuals in array are initially infected??
+                infect(people[i]);//does it matter which individuals in array are initially infected??
             }
             //vaccinate(individual[1+j]);
         }
         
-        void printIndividual(){
-            for(int k=0;k<arraySize;k++){
-                individual[k].print(k);
+        void printPeople(){
+            for(unsigned int i = 0; i<people.size(); ++i) {
+                people[i]->print(i);
             }
         }
     
-
 
         double FinalTime(){
             return finalTime[0];
@@ -213,8 +217,8 @@ class EventDriven_MassAction_Sim {
 
         int totalSusceptibles(){
             int sSum=0;
-            for(int i=0;i<arraySize;i++){
-                if(individual[i].getInfectionStatus()=='S'){
+            for(Person* p: people) {
+                if(p->getInfectionStatus()=='S'){
                     sSum+=1;
                 }
             }
@@ -222,8 +226,8 @@ class EventDriven_MassAction_Sim {
         }
         int totalInfecteds(){
             int iSum=0;
-            for(int i=0;i<arraySize;i++){
-                if(individual[i].getInfectionStatus()=='I'){
+            for(Person* p: people) {
+                if(p->getInfectionStatus()=='I'){
                     iSum+=1;
                 }
             }
@@ -231,18 +235,18 @@ class EventDriven_MassAction_Sim {
         }
         double totalInfectionRate(){
             double infectionRate = 0.0;
-            for(int i=0;i<arraySize;i++){
-                infectionRate+=individual[i].probInfGivenDose(infDose);
+            for(Person* p: people) {
+                infectionRate+=p->probInfGivenDose(infDose);
             }
             return infectionRate;
         }
 
 
-        void infect(Person& individual) {
-            assert(individual.getInfectionStatus()=='S');
-            individual.setInfectionStatus('I');
-            individual.setTimeSinceInfection(0.0);
-            individual.setTiterLevel(std::min(2048.0,11.0*individual.getTiterLevel()));//boost 10 fold
+        void infect(Person* p) {
+            assert(p->getInfectionStatus()=='S');
+            p->setInfectionStatus('I');
+            p->setTimeSinceInfection(0.0);
+            p->setTiterLevel(std::min(2048.0,11.0*p->getTiterLevel()));//boost 10 fold
             //time to recovery
             exponential_distribution<double> exp_gamma(GAMMA);//**temporary recovery rate
             double Tr = exp_gamma(rng) + Now;
@@ -250,21 +254,21 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (Tc < Tr) {     // does contact occur before recovery?
-                individual.updateEventQ(Tc,"inf_c");
+                p->updateEventQ(Tc,"inf_c");
                 Tc += exp_beta(rng);
             }
-            individual.updateEventQ(Tr,"inf_r");
+            p->updateEventQ(Tr,"inf_r");
             //time to waning
             exponential_distribution<double> exp_rho(RHO);//**temp waning rate
             double Tw = exp_rho(rng) + Now;
-            individual.updateEventQ(Tw, "inf_wane");
+            p->updateEventQ(Tw, "inf_wane");
             return;
         }
-        void vaccinate(Person& individual){
-            assert(individual.getInfectionStatus()=='S');
-            individual.setInfectionStatus('V');
-            individual.setTimeSinceInfection(0.0);
-            individual.setTiterLevel(std::min(2048.0,11.0*individual.getTiterLevel()));//boost 10 fold
+        void vaccinate(Person* p){
+            assert(p->getInfectionStatus()=='S');
+            p->setInfectionStatus('V');
+            p->setTimeSinceInfection(0.0);
+            p->setTiterLevel(std::min(2048.0,11.0*p->getTiterLevel()));//boost 10 fold
             //time to recovery
             exponential_distribution<double> exp_gamma(GAMMA);//**temporary recovery rate
             double Tr = exp_gamma(rng) + Now;
@@ -272,21 +276,21 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (Tc < Tr) {     // does contact occur before recovery?
-                individual.updateEventQ(Tc,"inf_c");
+                p->updateEventQ(Tc,"inf_c");
                 Tc += exp_beta(rng);
             }
-            individual.updateEventQ(Tr,"vacc_r");
+            p->updateEventQ(Tr,"vacc_r");
             exponential_distribution<double> exp_rho(RHO);//**temp waning rate
             double Tw=exp_rho(rng) + Now;
-            individual.updateEventQ(Tw, "vacc_wane");
+            p->updateEventQ(Tw, "vacc_wane");
             return;
 
         }
     
         int nextEvent() {
             int endLoop=0;
-            for(int i=0;i<arraySize;i++){//check to see if all event queues are empty
-                if(individual[i].isEmptyQ()==0){
+            for(Person* p: people) {//check to see if all event queues are empty
+                if(p->isEmptyQ()==0){
                     endLoop++;
                     break;
                 }
@@ -296,20 +300,21 @@ class EventDriven_MassAction_Sim {
             }
             double minTime=1000000000;
             int minIndex=0;
-            for(int i=0;i<arraySize;i++){//find event to occur by finding smallest time in all priority queues
-                if (individual[i].isEmptyQ()==0){
-                    Event event = individual[i].getEventQ();
+            for(unsigned int i = 0; i < people.size(); ++i) {//find event to occur by finding smallest time in all priority queues{
+                Person* p = people[i];
+                if (p->isEmptyQ()==0){
+                    Event event = p->getEventQ();
                     if(event.time<minTime){
                         minTime=event.time;
                         minIndex=i;
                     }
                 }
             }
-            Event event = individual[minIndex].getEventQ();
+            Event event = people[minIndex]->getEventQ();
             Now = event.time;
-            for(int i=0;i<arraySize;i++){//update individual's demography before event (do we want to make aging an event?)
-                individual[i].setTimeSinceInfection(Now-previousTime[0]);
-                individual[i].setAge(individual[i].getAge()+(Now-previousTime[0]));
+            for(Person* p: people) {//update individual's demography before event (do we want to make aging an event?)
+                p->setTimeSinceInfection(Now-previousTime[0]);
+                p->setAge(p->getAge()+(Now-previousTime[0]));
             }
             if(event.type=="inf_c"){//includes contact with infected and vaccinated individual (OPV)
                 double r1 = unif_real(rng);
@@ -317,12 +322,12 @@ class EventDriven_MassAction_Sim {
                 double sum = 0.0;
                 double infectionSum=totalInfectionRate();
                 if(r2<=totalSusceptibles()){//if there are enough susceptibles in the pop then a contact will lead to an infection
-                    for(int i=0;i<arraySize;i++){
-                        if(r1<(sum+(individual[i].probInfGivenDose(infDose)/infectionSum))){
-                            infect(individual[i]);
+                    for(Person* p: people) {
+                        if(r1<(sum+(p->probInfGivenDose(infDose)/infectionSum))){
+                            infect(p);
                             break;
                         }
-                        sum+=individual[i].probInfGivenDose(infDose)/infectionSum;
+                        sum+=p->probInfGivenDose(infDose)/infectionSum;
                        
                     }
                 }
@@ -342,22 +347,21 @@ class EventDriven_MassAction_Sim {
                 }
             }*/
             else if (event.type == "inf_r") {//recovery from vacc and WPV may be different
-                individual[minIndex].setInfectionStatus('R');
+                people[minIndex]->setInfectionStatus('R');
             }
             else if(event.type=="vacc_r"){
-                individual[minIndex].setInfectionStatus('R');
+                people[minIndex]->setInfectionStatus('R');
             }
             else if(event.type=="inf_wane"){
-                individual[minIndex].waning();
-                individual[minIndex].setInfectionStatus('S');
+                people[minIndex]->waning();
+                people[minIndex]->setInfectionStatus('S');
             }
             else if(event.type=="vacc_wane"){
-                individual[minIndex].waning();
-                individual[minIndex].setInfectionStatus('S');
+                people[minIndex]->waning();
+                people[minIndex]->setInfectionStatus('S');
             }
             previousTime[0]=event.time;
-            individual[minIndex].popEventQ();
-                
+            people[minIndex]->popEventQ();
             
             return 1;
         }

@@ -1,8 +1,5 @@
 #include "EventDriven_MassAction_Sim.h"
 
-
-
-
 int main() {
     int numSims = 1;
     int N        = 5;
@@ -12,18 +9,16 @@ int main() {
     double RHO = .02;
     double BIRTH = .02;
     double DEATH = .02;
-
-    
     
     double vecSumm=0.0;
     
     for(int i=0; i<numSims; i++ ) {
         EventDriven_MassAction_Sim sim(N,GAMMA,BETA,KAPPA,RHO,BIRTH,DEATH);
         sim.randomizePopulation(1,1);//randomize with # of infecteds and # to vacc in parentheses
-        sim.printIndividual();
+        sim.printPeople();
        // sim.rand_infect(1);
         sim.runSimulation();
-        sim.printIndividual();
+        sim.printPeople();
         //cout << sim.epidemic_size() << endl;
       //vecSumm+=sim.FinalTime();
     }
