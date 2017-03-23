@@ -18,35 +18,6 @@ using namespace std;
 
 
 
-class Event {
-public:
-    double time;
-    string type;
-    
-   // Event(const Event& o) {time = o.time; type=o.type;}//*** this is a copy constructor
-    Event(double t=0.0, string e="r"):time(t),type(e){} // *** this is a constructor
-   // Event& operator=(const Event& o) {
-   //     if(this != &o){
-   //         time = o.time;
-   //         type=o.type;
-   //     }
-   //     return *this;
-   // } //*** this is copy assignment operator
-};
-
-class compTime {
-public:
-    //two in case we use pointers at some point
-    bool operator() (const Event* lhs, const Event* rhs) const {
-        
-        return (lhs->time>rhs->time); //(->) is a reference operator for pointers
-    }
-    
-    bool operator() (const Event& lhs, const Event& rhs) const {
-        return (lhs.time>rhs.time);
-    }
-};
-
 class Person{
     friend class Event;
     private:
@@ -55,10 +26,10 @@ class Person{
     double m_timeSinceInfection; //infection means any contact with virus
     double m_titerLevel;
     char m_infectionStatus; //'S','I','V'
-    Event event;
-    double time =0.0;
-    string type= "r";
-    priority_queue<Event, vector<Event>, compTime > EventQ;
+    //Event event;
+    //double time =0.0;
+    //string type= "r";
+    //priority_queue<Event, vector<Event>, compTime > EventQ;
     
     public:
     //default constructor
@@ -66,7 +37,7 @@ class Person{
         
     }
     
-    void updateEventQ(double time,string type){
+ /*   void updateEventQ(double time,string type){
         EventQ.push(Event(time,type));
     }
     Event getEventQ(){
@@ -85,7 +56,7 @@ class Person{
         else{
             return 0;
         }
-    }
+    }*/
     
     void setAge(double age){
         m_age = age;
@@ -130,7 +101,38 @@ class Person{
     }
 };
 
+class Event {
+    friend class Person;
+public:
+    double time;
+    string type;
+    Person* people;
 
+    
+    // Event(const Event& o) {time = o.time; type=o.type;}//*** this is a copy constructor
+    Event(double t=0.0, string e="r",Person* p = 0):time(t),type(e),people(p){} // *** this is a constructor
+    // Event& operator=(const Event& o) {
+    //     if(this != &o){
+    //         time = o.time;
+    //         type=o.type;
+    //     }
+    //     return *this;
+    // } //*** this is copy assignment operator
+    
+};
+
+class compTime {
+public:
+    //two in case we use pointers at some point
+    bool operator() (const Event* lhs, const Event* rhs) const {
+        
+        return (lhs->time>rhs->time); //(->) is a reference operator for pointers
+    }
+    
+    bool operator() (const Event& lhs, const Event& rhs) const {
+        return (lhs.time>rhs.time);
+    }
+};
 
 
 class EventDriven_MassAction_Sim {
@@ -168,7 +170,8 @@ class EventDriven_MassAction_Sim {
         //create fixed array of number of individuals in population
         vector<Person*> people;
         array<double,1>previousTime;
-
+        priority_queue<Event, vector<Event>, compTime > EventQ;
+    
         double Now;                 // Current "time" in simulation
         vector<double>finalTime;
     
@@ -254,14 +257,17 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (Tc < Tr) {     // does contact occur before recovery?
-                p->updateEventQ(Tc,"inf_c");
+            //    p->updateEventQ(Tc,"inf_c");
+                EventQ.push(Event(Tc,"inf_c",p));
                 Tc += exp_beta(rng);
             }
-            p->updateEventQ(Tr,"inf_r");
+           // p->updateEventQ(Tr,"inf_r");
+            EventQ.push(Event(Tc,"inf_r",p));
             //time to waning
             exponential_distribution<double> exp_rho(RHO);//**temp waning rate
             double Tw = exp_rho(rng) + Now;
-            p->updateEventQ(Tw, "inf_wane");
+           // p->updateEventQ(Tw, "inf_wane");
+            EventQ.push(Event(Tw,"inf_wane",p));
             return;
         }
         void vaccinate(Person* p){
@@ -276,46 +282,27 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (Tc < Tr) {     // does contact occur before recovery?
-                p->updateEventQ(Tc,"inf_c");
+                EventQ.push(Event(Tc,"inf_c",p));
                 Tc += exp_beta(rng);
             }
-            p->updateEventQ(Tr,"vacc_r");
+            EventQ.push(Event(Tc,"vacc_r",p));
             exponential_distribution<double> exp_rho(RHO);//**temp waning rate
             double Tw=exp_rho(rng) + Now;
-            p->updateEventQ(Tw, "vacc_wane");
+            EventQ.push(Event(Tw,"inf_wane",p));
             return;
 
         }
     
         int nextEvent() {
-            int endLoop=0;
-            for(Person* p: people) {//check to see if all event queues are empty
-                if(p->isEmptyQ()==0){
-                    endLoop++;
-                    break;
-                }
-            }
-            if(endLoop==0){
-                return 0;
-            }
-            double minTime=1000000000;
-            int minIndex=0;
-            for(unsigned int i = 0; i < people.size(); ++i) {//find event to occur by finding smallest time in all priority queues{
-                Person* p = people[i];
-                if (p->isEmptyQ()==0){
-                    Event event = p->getEventQ();
-                    if(event.time<minTime){
-                        minTime=event.time;
-                        minIndex=i;
-                    }
-                }
-            }
-            Event event = people[minIndex]->getEventQ();
+            if(EventQ.empty()) return 0;
+            Event event = EventQ.top();
             Now = event.time;
+
             for(Person* p: people) {//update individual's demography before event (do we want to make aging an event?)
                 p->setTimeSinceInfection(Now-previousTime[0]);
                 p->setAge(p->getAge()+(Now-previousTime[0]));
             }
+            Person &individual = *event.people;
             if(event.type=="inf_c"){//includes contact with infected and vaccinated individual (OPV)
                 double r1 = unif_real(rng);
                 double r2 = unif_int(rng);
@@ -333,35 +320,35 @@ class EventDriven_MassAction_Sim {
                 }
                 
             }
-          /*  else if(event.type=="vacc_c"){//contact with vaccinated individual
+            else if(event.type=="vacc_c"){//contact with vaccinated individual
                 double r1 = unif_real(rng);
                 double r2 = unif_int(rng);
                 if(r2<=totalSusceptibles()){
-                    for(int i=0;i<arraySize;i++){
-                        if(r1<individual[i].probInfGivenDose(vaccDose)){
-                            infect(individual[i]);
+                    for(Person* p: people){
+                        if(r1<p->probInfGivenDose(vaccDose)){
+                            infect(p);
                             break;
                         }
                         
                     }
                 }
-            }*/
+            }
             else if (event.type == "inf_r") {//recovery from vacc and WPV may be different
-                people[minIndex]->setInfectionStatus('R');
+                individual.setInfectionStatus('R');
             }
             else if(event.type=="vacc_r"){
-                people[minIndex]->setInfectionStatus('R');
+                individual.setInfectionStatus('R');
             }
             else if(event.type=="inf_wane"){
-                people[minIndex]->waning();
-                people[minIndex]->setInfectionStatus('S');
+                individual.waning();
+                individual.setInfectionStatus('S');
             }
             else if(event.type=="vacc_wane"){
-                people[minIndex]->waning();
-                people[minIndex]->setInfectionStatus('S');
+                individual.waning();
+                individual.setInfectionStatus('S');
             }
             previousTime[0]=event.time;
-            people[minIndex]->popEventQ();
+            EventQ.pop();
             
             return 1;
         }
