@@ -10,6 +10,7 @@
 #include <array>
 #include <fstream>
 #include <string>
+#include <time.h>
 
 
 
@@ -33,33 +34,15 @@ class Person{
     
     public:
     //default constructor
-    Person(double age=0, double timeSinceInfection=0.0, double titerLevel=1.0, char infectionStatus ='S'):m_age(age), m_timeSinceInfection(timeSinceInfection),m_titerLevel(titerLevel),m_infectionStatus(infectionStatus){
+    Person(double age=0, double timeSinceInfection=0.0, double titerLevel=0.0, char infectionStatus ='S'):m_age(age), m_timeSinceInfection(timeSinceInfection),m_titerLevel(titerLevel),m_infectionStatus(infectionStatus){
         
     }
     
- /*   void updateEventQ(double time,string type){
-        EventQ.push(Event(time,type));
-    }
-    Event getEventQ(){
-        assert(!EventQ.empty());
-        return EventQ.top();
-    }
-    
-    void popEventQ(){
-        EventQ.pop();
-    }
-    
-    int isEmptyQ(){
-        if(EventQ.empty()){
-            return 1;
-        }
-        else{
-            return 0;
-        }
-    }*/
-    
     void setAge(double age){
         m_age = age;
+    }
+    void updateAge(double age){
+        m_age +=age;
     }
     void setTimeSinceInfection(double timeSinceInfection){
         m_timeSinceInfection +=timeSinceInfection;
@@ -92,6 +75,7 @@ class Person{
         }
     }
     void waning(){
+        assert(m_timeSinceInfection!=0);
         m_titerLevel= std::max(1.0, 3.0*pow(m_timeSinceInfection,-.75));///what is baseline line immmunity one month post infection??--replace 3.0 with this
         return;
     }
@@ -157,28 +141,33 @@ class EventDriven_MassAction_Sim {
         const double DEATH;
         const double infDose=5; //number of doses from WPV infection
         const double vaccDose=3; //number of doses from OPV vacc
+        const double PIR = 0.001; //type 3 paralysis incidence rate
     
 
         exponential_distribution<double> exp_gamma;
         exponential_distribution<double> exp_beta;
         exponential_distribution<double> exp_rho;
+        exponential_distribution<double> exp_death;
         uniform_real_distribution<double> unif_real;
         uniform_int_distribution<int> unif_int;
         mt19937 rng;
     
+    
 
-        //create fixed array of number of individuals in population
+        //containers to keep track of various pieces of information
         vector<Person*> people;
         array<double,1>previousTime;
         priority_queue<Event, vector<Event>, compTime > EventQ;
+        array<double,1>finalTime;
+        vector<double> timeOfParalyticCase;
     
         double Now;                 // Current "time" in simulation
-        vector<double>finalTime;
+
     
         void runSimulation(){
             while(nextEvent()>=0){
                 if(nextEvent()==0){
-                    finalTime.push_back(Now);
+                    finalTime[0]=Now;
                     break;
                 }
                 continue;
@@ -187,19 +176,12 @@ class EventDriven_MassAction_Sim {
     
         void randomizePopulation(int k,int j){
         //temporary initial conditions: these can be changed at a later date
+            discrete_distribution<int> age {0,1,1,1};
             for(Person* p: people) {
-                double rr=unif_real(rng);
-                if(rr<0.3){
-                    p->setAge(1);
-                }
-                else if(rr<.6){
-                    p->setAge(2);
-                }
-                else{
-                    p->setAge(3);
-                }
+                p->setAge(age(rng));
                 p->setTimeSinceInfection(unif_real(rng));
                 p->setTiterLevel(100.0);
+                death(p); //set when each individual will die
             }
             for(int i=0;i<k;++i){
                 infect(people[i]);//does it matter which individuals in array are initially infected??
@@ -250,6 +232,11 @@ class EventDriven_MassAction_Sim {
             p->setInfectionStatus('I');
             p->setTimeSinceInfection(0.0);
             p->setTiterLevel(std::min(2048.0,11.0*p->getTiterLevel()));//boost 10 fold
+            //is this a paralytic case?
+            double r1 = unif_real(rng);
+            if(r1<PIR){
+                timeOfParalyticCase.push_back(Now);
+            }
             //time to recovery
             exponential_distribution<double> exp_gamma(GAMMA);//**temporary recovery rate
             double Tr = exp_gamma(rng) + Now;
@@ -257,17 +244,14 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (Tc < Tr) {     // does contact occur before recovery?
-            //    p->updateEventQ(Tc,"inf_c");
                 EventQ.push(Event(Tc,"inf_c",p));
                 Tc += exp_beta(rng);
             }
-           // p->updateEventQ(Tr,"inf_r");
             EventQ.push(Event(Tc,"inf_r",p));
             //time to waning
-            exponential_distribution<double> exp_rho(RHO);//**temp waning rate
-            double Tw = exp_rho(rng) + Now;
-           // p->updateEventQ(Tw, "inf_wane");
-            EventQ.push(Event(Tw,"inf_wane",p));
+           // exponential_distribution<double> exp_rho(RHO);//**temp waning rate
+           // double Tw = exp_rho(rng) + Now;
+           // EventQ.push(Event(Tw,"inf_wane",p));
             return;
         }
         void vaccinate(Person* p){
@@ -286,35 +270,39 @@ class EventDriven_MassAction_Sim {
                 Tc += exp_beta(rng);
             }
             EventQ.push(Event(Tc,"vacc_r",p));
-            exponential_distribution<double> exp_rho(RHO);//**temp waning rate
-            double Tw=exp_rho(rng) + Now;
-            EventQ.push(Event(Tw,"inf_wane",p));
+           // exponential_distribution<double> exp_rho(RHO);//**temp waning rate
+           // double Tw=exp_rho(rng) + Now;
+           // EventQ.push(Event(Tw,"inf_wane",p));
             return;
 
+        }
+        void death(Person* p){
+            //time to death
+            exponential_distribution<double> exp_death(DEATH);
+            double Td = exp_death(rng) + Now;
+            Td > 100.0 ? Td = 100.0: Td = Td; //max lifespan is 100
+            EventQ.push(Event(Td,"death",p));
+            return;
         }
     
         int nextEvent() {
             if(EventQ.empty()) return 0;
             Event event = EventQ.top();
             Now = event.time;
-
             for(Person* p: people) {//update individual's demography before event (do we want to make aging an event?)
                 p->setTimeSinceInfection(Now-previousTime[0]);
-                p->setAge(p->getAge()+(Now-previousTime[0]));
+                p->updateAge((Now-previousTime[0]));
+                p->waning();//should this come before or after event occurs?
             }
             Person &individual = *event.people;
             if(event.type=="inf_c"){//includes contact with infected and vaccinated individual (OPV)
                 double r1 = unif_real(rng);
                 double r2 = unif_int(rng);
-                double sum = 0.0;
-                double infectionSum=totalInfectionRate();
                 if(r2<=totalSusceptibles()){//if there are enough susceptibles in the pop then a contact will lead to an infection
                     for(Person* p: people) {
-                        if(r1<(sum+(p->probInfGivenDose(infDose)/infectionSum))){
+                        if(r1<(p->probInfGivenDose(infDose))){//infects any susceptible whose antibody titer is low enough
                             infect(p);
-                            break;
                         }
-                        sum+=p->probInfGivenDose(infDose)/infectionSum;
                        
                     }
                 }
@@ -327,26 +315,28 @@ class EventDriven_MassAction_Sim {
                     for(Person* p: people){
                         if(r1<p->probInfGivenDose(vaccDose)){
                             infect(p);
-                            break;
                         }
                         
                     }
                 }
             }
             else if (event.type == "inf_r") {//recovery from vacc and WPV may be different
-                individual.setInfectionStatus('R');
+                individual.setInfectionStatus('S');
             }
             else if(event.type=="vacc_r"){
-                individual.setInfectionStatus('R');
+                individual.setInfectionStatus('S');
             }
-            else if(event.type=="inf_wane"){
+            else if(event.type=="death"){
+                individual=Person();//keeps population constant
+            }
+          /*  else if(event.type=="inf_wane"){
                 individual.waning();
                 individual.setInfectionStatus('S');
             }
             else if(event.type=="vacc_wane"){
                 individual.waning();
                 individual.setInfectionStatus('S');
-            }
+            }*/
             previousTime[0]=event.time;
             EventQ.pop();
             
