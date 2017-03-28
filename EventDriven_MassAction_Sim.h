@@ -75,8 +75,12 @@ class Person{
         }
     }
     void waning(){
-        assert(m_timeSinceInfection!=0);
-        m_titerLevel= std::max(1.0, 3.0*pow(m_timeSinceInfection,-.75));///what is baseline line immmunity one month post infection??--replace 3.0 with this
+        if(m_timeSinceInfection!=0){
+        m_titerLevel= std::max(1.0, 3.0*pow(m_timeSinceInfection,-.75));
+        }///what is baseline line immmunity one month post infection??--replace 3.0 with this
+        else{
+            m_titerLevel=0;
+        }
         return;
     }
     
@@ -142,6 +146,7 @@ class EventDriven_MassAction_Sim {
         const double infDose=5; //number of doses from WPV infection
         const double vaccDose=3; //number of doses from OPV vacc
         const double PIR = 0.001; //type 3 paralysis incidence rate
+        double TTE =0;
     
 
         exponential_distribution<double> exp_gamma;
@@ -197,7 +202,7 @@ class EventDriven_MassAction_Sim {
     
 
         double FinalTime(){
-            return finalTime[0];
+            return TTE;
         }
 
         int totalSusceptibles(){
@@ -322,9 +327,11 @@ class EventDriven_MassAction_Sim {
             }
             else if (event.type == "inf_r") {//recovery from vacc and WPV may be different
                 individual.setInfectionStatus('S');
+                TTE=Now;
             }
             else if(event.type=="vacc_r"){
                 individual.setInfectionStatus('S');
+                TTE=Now;
             }
             else if(event.type=="death"){
                 individual=Person();//keeps population constant
