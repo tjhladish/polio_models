@@ -11,6 +11,7 @@
 #include <fstream>
 #include <string>
 #include <time.h>
+#include <math.h>
 
 
 
@@ -83,6 +84,23 @@ class Person{
         }
         return;
     }
+    double peakShedding(){
+        if(m_age<(7/(double)24)){
+            return 6.7;//I put in the mean***need to change
+        }
+        else{
+            return ((6.7-4.3)*exp((7-m_age)/(10/(double)24))+4.3);//I put in the mean***need to change
+        }
+    }
+    
+    double shedding(double t){//***t needs to be time individual was infected
+        return .5*erfc((log(t)-(log(30.3)-log(1.16)*log(m_titerLevel)))/sqrt(2.0)*log(1.86));
+    }//I put in the mean of these parameters***need to change
+    
+    double stoolViralLoad(double t){
+        return std::max(2.6,((1.0-.056*log2(m_titerLevel))*log(peakShedding()))*(exp(1.65-(pow(.17,2)/(double)2)-(pow(log(t)-1.65,2)/(double)2*pow(.17+.32*log(t),2)))/t));
+        //I put in the mean of these parameters***need to change**units are in log_10
+    }
     
     void print(int i){
         std::cout<<"Attributes for person: "<<(i+1)<<" : "<<m_age<<" , "<<m_timeSinceInfection<<" , "<<m_titerLevel<<" ,"<<m_infectionStatus<<"\n";
@@ -147,12 +165,14 @@ class EventDriven_MassAction_Sim {
         const double vaccDose=3; //number of doses from OPV vacc
         const double PIR = 0.001; //type 3 paralysis incidence rate
         double TTE =0;
+        double delta = 1/(double)86;
     
 
         exponential_distribution<double> exp_gamma;
         exponential_distribution<double> exp_beta;
         exponential_distribution<double> exp_rho;
         exponential_distribution<double> exp_death;
+        exponential_distribution<double> exp_betaEnvironment;
         uniform_real_distribution<double> unif_real;
         uniform_int_distribution<int> unif_int;
         mt19937 rng;
@@ -167,7 +187,8 @@ class EventDriven_MassAction_Sim {
         vector<double> timeOfParalyticCase;
     
         double Now;                 // Current "time" in simulation
-
+        double Environment;
+        double inactivationRate = .0304*365; //assumes anaerobic, nonsteril soil avg temp 23 deg C (Hurst paper)**units are in log_10
     
         void runSimulation(){
             while(nextEvent()>=0){
@@ -186,7 +207,7 @@ class EventDriven_MassAction_Sim {
                 p->setAge(age(rng));
                 p->setTimeSinceInfection(unif_real(rng));
                 p->setTiterLevel(100.0);
-                death(p); //set when each individual will die
+              //  death(p); //set when each individual will die
             }
             for(int i=0;i<k;++i){
                 infect(people[i]);//does it matter which individuals in array are initially infected??
@@ -234,6 +255,7 @@ class EventDriven_MassAction_Sim {
 
         void infect(Person* p) {
             assert(p->getInfectionStatus()=='S');
+            cout<<"in infect\n";
             p->setInfectionStatus('I');
             p->setTimeSinceInfection(0.0);
             p->setTiterLevel(std::min(2048.0,11.0*p->getTiterLevel()));//boost 10 fold
@@ -245,7 +267,7 @@ class EventDriven_MassAction_Sim {
             //time to recovery
             exponential_distribution<double> exp_gamma(GAMMA);//**temporary recovery rate
             double Tr = exp_gamma(rng) + Now;
-            // time to next contact
+            // time to next human-human contact
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (Tc < Tr) {     // does contact occur before recovery?
@@ -281,23 +303,79 @@ class EventDriven_MassAction_Sim {
             return;
 
         }
-        void death(Person* p){
+    
+        void infectByEnvironment(Person* p){
+            assert(p->getInfectionStatus()=='S');
+            cout<<"in infectByEnvironment\n";
+            p->setInfectionStatus('I');
+            p->setTimeSinceInfection(0.0);
+            p->setTiterLevel(std::min(2048.0,11.0*p->getTiterLevel()));//boost 10 fold
+            //is this a paralytic case?
+            double r1 = unif_real(rng);
+            if(r1<PIR){
+                timeOfParalyticCase.push_back(Now);
+                cout<<"paralytic case\n";
+            }
+            //time to recovery
+            exponential_distribution<double> exp_gamma(DEATH);//**temporary recovery rate
+            double Tr = exp_gamma(rng) + Now;
+            // time to next human-human contact
+            exponential_distribution<double> exp_beta(DEATH);//**temporary contact rate
+            double Tc = exp_beta(rng) + Now;
+            while (Tc < Tr) {     // does contact occur before recovery?
+                EventQ.push(Event(Tc,"inf_c",p));
+                Tc += exp_beta(rng);
+                cout<<"contact\n";
+            }
+            EventQ.push(Event(Tc,"inf_r",p));
+            cout<<"recovery\n";
+            //time to waning
+            // exponential_distribution<double> exp_rho(RHO);//**temp waning rate
+            // double Tw = exp_rho(rng) + Now;
+            // EventQ.push(Event(Tw,"inf_wane",p));
+            return;
+        }
+      /*  void death(Person* p){
             //time to death
             exponential_distribution<double> exp_death(DEATH);
             double Td = exp_death(rng) + Now;
             Td > 100.0 ? Td = 100.0: Td = Td; //max lifespan is 100
             EventQ.push(Event(Td,"death",p));
+            cout<<"death time: "<<Td<<"\n";
             return;
-        }
+        }*/
     
         int nextEvent() {
             if(EventQ.empty()) return 0;
             Event event = EventQ.top();
             Now = event.time;
             for(Person* p: people) {//update individual's demography before event (do we want to make aging an event?)
+                double r4 = unif_real(rng);
+                if(r4 < DEATH or (p->getAge()>=100)){///temporary death***need to change
+                   *p = Person();//keeps population constant
+                }
                 p->setTimeSinceInfection(Now-previousTime[0]);
                 p->updateAge((Now-previousTime[0]));
                 p->waning();//should this come before or after event occurs?
+                // does this person contact the environment?
+                exponential_distribution<double> exp_betaEnvironment(DEATH);//**temporary contact rate
+                double rand2 = unif_real(rng);
+                double Tce = exp_betaEnvironment(rng)+Now;
+                if(rand2 < exp_betaEnvironment(rng)){
+                    EventQ.push(Event(Tce,"env_c",p));
+                    break;
+                }
+                double rand = unif_real(rng);
+                if(rand<p->shedding(p->getTimeSinceInfection()) and p->getTiterLevel()!=0){
+                    Environment+=128*(365*(Now-previousTime[0]))*p->stoolViralLoad(p->getTimeSinceInfection()*365);//avg 46720 g of feces per year (128 g/day)
+                    cout<<"Now - previous time: "<<Now-previousTime[0]<<"\n";
+                    cout<<"Environment: "<<128*(365*(Now-previousTime[0]))*p->stoolViralLoad(p->getTimeSinceInfection()*365)<<"\n";
+                }
+            }
+            //first update Environment
+            double rand1=unif_real(rng);
+            if(rand1<delta and Environment>=0){
+                Environment-=inactivationRate;
             }
             Person &individual = *event.people;
             if(event.type=="inf_c"){//includes contact with infected and vaccinated individual (OPV)
@@ -333,8 +411,19 @@ class EventDriven_MassAction_Sim {
                 individual.setInfectionStatus('S');
                 TTE=Now;
             }
-            else if(event.type=="death"){
-                individual=Person();//keeps population constant
+          //  else if(event.type=="death"){
+          //      individual=Person();//keeps population constant
+               // death(&individual);//give each new person a death
+         //   }
+            else if(event.type=="env_c"){
+                double r1=unif_real(rng);
+               for(Person* p: people) {
+                   if(r1 < .0000000005 && p->getInfectionStatus()=='S'){
+          //          if(r1<(p->probInfGivenDose(infDose))){//infects any susceptible whose antibody titer is low enough
+                        infectByEnvironment(p);
+                    }
+                    
+                }
             }
           /*  else if(event.type=="inf_wane"){
                 individual.waning();
