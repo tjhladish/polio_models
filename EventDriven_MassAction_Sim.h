@@ -26,13 +26,13 @@ class Person{
     private:
     //attributes
     double m_age;
-    double m_timeSinceInfection; //infection means any contact with virus
     double m_titerLevel;
+    double m_timeAtInfection;//infection means either OPV or WPV
     char m_infectionStatus; //'S','I','V'
     
     public:
     //default constructor
-    Person(double age=0, double timeSinceInfection=0.0, double titerLevel=1.0, char infectionStatus ='S'):m_age(age), m_timeSinceInfection(timeSinceInfection),m_titerLevel(titerLevel),m_infectionStatus(infectionStatus){
+    Person(double age=0, double titerLevel=1.0, double timeAtInfection=0.0,char infectionStatus ='S'):m_age(age),m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection),m_infectionStatus(infectionStatus){
         
     }
     
@@ -51,22 +51,26 @@ class Person{
     void reset(){
         m_age = 0.0;
         m_titerLevel = 1.0;
-        m_timeSinceInfection=0.0;
+      //  m_timeSinceInfection=0.0;
+        m_timeAtInfection=0.0;
         m_infectionStatus = 'S';
     }
     
-    void setTimeSinceInfection(double timeSinceInfection){
+ /*   void setTimeSinceInfection(double timeSinceInfection){
         m_timeSinceInfection = timeSinceInfection;
     }
     
     void updateTimeSinceInfection(double timeSinceInfection){
-        cout<<"in update time since infection loop\n";
-        cout<<"double time since infection "<< timeSinceInfection<<"\n";
-        cout<<"updated m_timeSinceInfection "<<m_timeSinceInfection+timeSinceInfection<<"\n";
+       // cout<<"in update time since infection loop\n";
+       // cout<<"double time since infection "<< timeSinceInfection<<"\n";
+       // cout<<"updated m_timeSinceInfection "<<m_timeSinceInfection+timeSinceInfection<<"\n";
         m_timeSinceInfection +=timeSinceInfection;
-    }
+    }*/
     void setTiterLevel(double titerLevel){
         m_titerLevel = std::min(maxTiter,titerLevel);
+    }
+    void setTimeAtInfection(double t){
+        m_timeAtInfection = t;
     }
     void setInfectionStatus(char infectionStatus){
         m_infectionStatus = infectionStatus;
@@ -74,27 +78,30 @@ class Person{
     int getAge(){
         return m_age;
     }
-    double getTimeSinceInfection(){
+ /*   double getTimeSinceInfection(){
         return m_timeSinceInfection;
-    }
+    }*/
     double getTiterLevel(){
         return m_titerLevel;
+    }
+    double getTimeAtInfection(){
+        return m_timeAtInfection;
     }
     char getInfectionStatus(){
         return m_infectionStatus;
     }
     
     double probInfGivenDose(double dose){//dose will vary based on if it is WPV or OPV
-        if(m_infectionStatus=='S'){
+        if(m_infectionStatus=='S'){//assumes m_titerLevel>0
             return 1-pow((1.0+(dose/betaDose)),-alphaDose*pow(m_titerLevel,-gammaDose));//put in mean and shape parameters
         }
         else{
             return 0.0;
         }
     }
-    void waning(){
-        if(m_timeSinceInfection>=(1/(double)12)){
-            m_titerLevel= std::max(1.0, Nab1*pow((m_timeSinceInfection*(double)12),-waningLambda));
+    void waning(double t){
+        if(t>=(1/(double)12)){
+            m_titerLevel= std::max(1.0, Nab1*pow((t*12),-waningLambda));
         }
         return;
     }
@@ -125,11 +132,11 @@ class Person{
     
     double stoolViralLoad(double t){
         return std::max(pow(10.0,2.6),(peakShedding()/k*log2(m_titerLevel))*(exp(eta-(pow(nu,2)/(double)2)-(pow(log(t)-eta,2)/(double)2*pow(nu+xsi*log(t),2)))/t));
-        //**units are in log_10 TCID50/g
+        //**units are in TCID50/g
     }
     
     void print(int i){
-        std::cout<<"Attributes for person: "<<(i+1)<<" : "<<m_age<<" , "<<m_timeSinceInfection<<" , "<<m_titerLevel<<" ,"<<m_infectionStatus<<"\n";
+        std::cout<<"Attributes for person: "<<(i+1)<<" : "<<m_age<<" , "<<m_titerLevel<<" ,"<<m_infectionStatus<<" , "<<m_timeAtInfection<<"\n";
     }
 };
 
@@ -230,8 +237,9 @@ class EventDriven_MassAction_Sim {
             discrete_distribution<int> age {0,1,1,1};
             for(Person* p: people) {
                 p->setAge(age(rng));
-                p->setTimeSinceInfection(unif_real(rng));
+              //  p->setTimeSinceInfection(unif_real(rng));
                 p->setTiterLevel(1000.0);
+                p->setTimeAtInfection(0.0);
                 death(p); //set when each individual will die
             }
             for(int i=0;i<k;++i){
@@ -290,7 +298,8 @@ class EventDriven_MassAction_Sim {
         //    cout<<"time since infection "<<p->getTimeSinceInfection()<<"\n";
             numInfected++;
             p->setInfectionStatus('I');
-            p->setTimeSinceInfection(0.0);
+           // p->setTimeSinceInfection(0.0);
+            p->setTimeAtInfection(Now);
      //       cout<<"time since infection after set "<<p->getTimeSinceInfection()<<"\n";
      //       cout<<"titer level before set: "<<p->getTiterLevel()<<"\n";
             p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
@@ -316,7 +325,8 @@ class EventDriven_MassAction_Sim {
         void vaccinate(Person* p){
             assert(p->getInfectionStatus()=='S');
             p->setInfectionStatus('V');
-            p->setTimeSinceInfection(0.0);
+        //    p->setTimeSinceInfection(0.0);
+            p->setTimeAtInfection(Now);
             p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
             //time to recovery
             exponential_distribution<double> exp_gamma(GAMMA);//**temporary recovery rate
@@ -337,7 +347,8 @@ class EventDriven_MassAction_Sim {
             assert(p->getInfectionStatus()=='S');
             numInfected++;
             p->setInfectionStatus('I');
-            p->setTimeSinceInfection(0.0);
+         //   p->setTimeSinceInfection(0.0);
+            p->setTimeAtInfection(Now);
             p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
             //is this a paralytic case?
             double r1 = unif_real(rng);
@@ -386,19 +397,22 @@ class EventDriven_MassAction_Sim {
             if(numInfected==0 or EventQ.empty()) return 0;
             Event event = EventQ.top();
             Now = event.time;
-            cout<<"Now "<<Now<<"\n";
-            cout<<"event "<<event.type<<"\n";
+            //cout<<"Now "<<Now<<"\n";
+            //cout<<"event "<<event.type<<"\n";
+            double timeStep = Now - previousTime[0];
+            double minusEnvironment = inactivationRate*timeStep;
             for(int i=0;i<people.size();i++){
                 cout<<"person "<<(i+1)<<" titer level "<<people[i]->getTiterLevel()<<"\n";
             }
+            latrineVolume+=(people.size()*feces*urine - evapRate)*timeStep*365;
             for(Person* p: people) {
-                p->updateAge((Now-previousTime[0]));
-                p->updateTimeSinceInfection((Now-previousTime[0]));
+                p->updateAge(timeStep);
                 // does this person contact the environment?
                 exponential_distribution<double> exp_betaEnvironment(DEATH);//**temporary contact rate
                 double rand2 = unif_real(rng);
-                double Tce = exp_betaEnvironment(rng)+Now;
-                if(rand2 < exp_betaEnvironment(rng)){
+                double TceStep = exp_betaEnvironment(rng);
+                double Tce = TceStep+Now;
+                if(rand2 < TceStep){
                     EventQ.push(Event(Tce,"env_c",p));
                 }
            /*     double rand = unif_real(rng);
@@ -415,11 +429,7 @@ class EventDriven_MassAction_Sim {
                 double r2 = unif_int(rng);
                 if(r2<=totalSusceptibles()){//if there are enough susceptibles in the pop then a contact will lead to an infection
                     for(Person* p: people) {
-                        cout<<"time since infection: "<<p->getTimeSinceInfection()<<"\n";
-                      //  cout<<"update to time since infection: "<<abs(Now-(p->getTimeSinceInfection()))<<"\n";
-                     //   cout<<"time since infection after update: "<<p->getTimeSinceInfection()<<"\n";
-                     //   cout<<"titer level before waning: "<<p->getTiterLevel()<<"\n";
-                        p->waning();
+                        p->waning(Now-p->getTimeAtInfection());
                     //    cout<<"titer level after waning: "<<p->getTiterLevel()<<"\n";
                         if(r1<(p->probInfGivenDose(infDose))){//infects the first person with low enough titer level**does this matter?
                             infect(p);
@@ -435,8 +445,7 @@ class EventDriven_MassAction_Sim {
                 double r2 = unif_int(rng);
                 if(r2<=totalSusceptibles()){
                     for(Person* p: people){
-                        p->updateTimeSinceInfection(abs(Now-(p->getTimeSinceInfection())));
-                        p->waning();
+                        p->waning(Now-p->getTimeAtInfection());
                         if(r1<p->probInfGivenDose(vaccDose)){
                             infect(p);
                             break;
@@ -462,17 +471,14 @@ class EventDriven_MassAction_Sim {
             }
             else if(event.type=="env_c"){
                 //first update Environment
-                latrineVolume+=people.size()*feces*urine;//assume constant for now
+                double r3 = unif_real(rng);
                 for(Person* p: people){
-                    if(p->getTiterLevel()!=0){
-                        Environment+=gramsFeces*p->shedding((Now-p->getTimeSinceInfection()));
+                    //using Now-timeAtInfection as opposed to timeSinceInfection so I don't have to update
+                    if(p->getTiterLevel()!=0 and r3 < p->shedding((Now-p->getTimeAtInfection())*365)){
+                        Environment+=gramsFeces*p->stoolViralLoad((Now-p->getTimeAtInfection())*365);
                     }
                 }
-                double rand1=unif_real(rng);
-                exponential_distribution<double> virusDeath(delta);
-                if(rand1<virusDeath(rng) and Environment>=0){
-                    Environment-=inactivationRate;
-                }
+                Environment = std::max(0.0, Environment - minusEnvironment);
                 double rand2 = unif_real(rng);
                 if(rand2<(Environment/(latrineVolume+Environment)) and individual->getInfectionStatus()=='S'){
                     infectByEnvironment(individual);

@@ -21,12 +21,16 @@ const double maxAge=100.0;
 double TTE =0;
 
 //Environment parameters
-double delta = 365/(double)180;//mean virus death rate in sand saturated with septic liquor (2003 - WHO Virus survival report)
+double delta = 180/(double)365;//mean virus death rate in sand saturated with septic liquor (2003 - WHO Virus survival report)
+//assume latrine has dimensions 10x1x1 in units m^3 and evaporation occurs at a rate of 12 mm/day
+double evapRate = .12; //**units in L/day
 
+
+//Environment contact parameters
 double inactivationRate = (pow(10,.0304))*365; //assumes anaerobic, nonsterile sandy-loam soil avg temp 23 deg C (Hurst paper)
 double latrineVolume = 0.0;
-const double feces = .128; //Liters
-const double urine = 1.4; //Liters
+const double feces = .128; //Liters/day
+const double urine = 1.4; //Liters/day
 const double gramsFeces = 128;
 
 //shedding parameters (these are all means from Famulare paper) - units in days
