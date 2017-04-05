@@ -12,6 +12,7 @@
 #include <string>
 #include <time.h>
 #include <math.h>
+#include <limits>
 #include "EventDriven_parameters.hpp"
 
 
@@ -28,12 +29,16 @@ class Person{
     double m_age;
     double m_titerLevel;
     double m_timeAtInfection;//infection means either OPV or WPV
-    char m_infectionStatus; //'S','I','V'
+    char m_infectionStatus; //'NS', 'S','I','V'
+    const int m_index;
     
     public:
     //default constructor
-    Person(double age=0, double titerLevel=1.0, double timeAtInfection=0.0,char infectionStatus ='S'):m_age(age),m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection),m_infectionStatus(infectionStatus){
+    Person(int idx, double age=0, double titerLevel=1.0, double timeAtInfection=numeric_limits<double>::max(),char infectionStatus ='S'):m_age(age),m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection),m_infectionStatus(infectionStatus),m_index(idx){
         
+    }
+    int getIndex () const {
+        return m_index;
     }
     
     void setAge(double age){
@@ -52,7 +57,7 @@ class Person{
         m_age = 0.0;
         m_titerLevel = 1.0;
       //  m_timeSinceInfection=0.0;
-        m_timeAtInfection=0.0;
+        m_timeAtInfection=numeric_limits<double>::max();
         m_infectionStatus = 'S';
     }
     
@@ -145,11 +150,11 @@ class Event {
 public:
     double time;
     string type;
-    Person* people;
+    Person* person;
 
     
     // Event(const Event& o) {time = o.time; type=o.type;}//*** this is a copy constructor
-    Event(double t=0.0, string e="r",Person* p = 0):time(t),type(e),people(p){} // *** this is a constructor
+    Event(double t=0.0, string e="r",Person* p = 0):time(t),type(e),person(p){} // *** this is a constructor
     // Event& operator=(const Event& o) {
     //     if(this != &o){
     //         time = o.time;
@@ -177,10 +182,10 @@ public:
 class EventDriven_MassAction_Sim {
     public:
                                     // constructor
-        EventDriven_MassAction_Sim(const int n, const double gamma, const double beta, const double kappa, const double rho, const double birth, const double death): rng((random_device())()), GAMMA(gamma), BETA(beta), KAPPA(kappa), RHO(rho), BIRTH(birth), DEATH(death), unif_real(0.0,1.0),unif_int(1,n-1){
+        EventDriven_MassAction_Sim(const int n, const double gamma, const double beta, const double kappa, const double rho, const double birth, const double death): rng((random_device())()), GAMMA(gamma), BETA(beta), KAPPA(kappa), RHO(rho), BIRTH(birth), DEATH(death), unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
             previousTime = {0};
             people = vector<Person*>(n);
-            for (Person* &p: people) p = new Person;
+            for (Person* &p: people) p = new Person(people_counter++);
             Now=0.0;
             Environment=100000.0;
             numInfected=0;
@@ -210,12 +215,12 @@ class EventDriven_MassAction_Sim {
         //containers to keep track of various pieces of information
         vector<Person*> people;
         priority_queue<Event, vector<Event>, compTime > EventQ;
-        array<double,1>previousTime={0};
+        array<double,1>previousTime;
         array<double,1>finalTime;
         vector<double> timeOfParalyticCase;
 
     
-    
+        int people_counter; 
         double Now;                 // Current "time" in simulation
         double Environment;
         int numInfected;
@@ -249,7 +254,7 @@ class EventDriven_MassAction_Sim {
             //time to testing the environment (put a person as a placeholder--nothing happens to this person)
             exponential_distribution<double> checkEnvironment(GAMMA);//**temp check rate--needs to change
             double Te = checkEnvironment(rng);
-            EventQ.push(Event(Te,"check_env",people[1]));
+            EventQ.push(Event(Te,"check_env",nullptr));
         }
         
         void printPeople(){
@@ -422,36 +427,29 @@ class EventDriven_MassAction_Sim {
                   //  cout<<"Environment: "<<128*(365*(Now-previousTime[0]))*p->stoolViralLoad(p->getTimeSinceInfection()*365)<<"\n";
                 }*/
             }
-            Person* individual = event.people;
+            Person* individual = event.person;
             if(event.type=="inf_c"){//includes contact with infected and vaccinated individual (OPV)
                 cout<<"in contact\n";
+                int contact_idx = unif_int(rng);
+                contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
+                Person* contact = people[contact_idx];
                 double r1 = unif_real(rng);
-                double r2 = unif_int(rng);
-                if(r2<=totalSusceptibles()){//if there are enough susceptibles in the pop then a contact will lead to an infection
-                    for(Person* p: people) {
-                        p->waning(Now-p->getTimeAtInfection());
-                    //    cout<<"titer level after waning: "<<p->getTiterLevel()<<"\n";
-                        if(r1<(p->probInfGivenDose(infDose))){//infects the first person with low enough titer level**does this matter?
-                            infect(p);
-                            break;
-                        }
-                       
-                    }
+TODO - check validity of time
+                contact->waning(Now - contact->getTimeAtInfection());
+                if(r1 < contact->probInfGivenDose(infDose)){
+                    infect(contact);
                 }
-                
+
             }
             else if(event.type=="vacc_c"){//contact with vaccinated individual
+                int contact_idx = unif_int(rng);
+                contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
+                Person* contact = people[contact_idx];
                 double r1 = unif_real(rng);
-                double r2 = unif_int(rng);
-                if(r2<=totalSusceptibles()){
-                    for(Person* p: people){
-                        p->waning(Now-p->getTimeAtInfection());
-                        if(r1<p->probInfGivenDose(vaccDose)){
-                            infect(p);
-                            break;
-                        }
-                        
-                    }
+
+                contact->waning(Now - contact->getTimeAtInfection());
+                if(r1 < contact->probInfGivenDose(vaccDose)){
+                    infect(contact);
                 }
             }
             else if (event.type == "inf_r") {//recovery from vacc and WPV may be different
@@ -474,8 +472,8 @@ class EventDriven_MassAction_Sim {
                 double r3 = unif_real(rng);
                 for(Person* p: people){
                     //using Now-timeAtInfection as opposed to timeSinceInfection so I don't have to update
-                    if(p->getTiterLevel()!=0 and r3 < p->shedding((Now-p->getTimeAtInfection())*365)){
-                        Environment+=gramsFeces*p->stoolViralLoad((Now-p->getTimeAtInfection())*365);
+                    if(p->getTiterLevel()!=0 and r3 < p->shedding((Now - p->getTimeAtInfection())*365)){
+                        Environment+=gramsFeces*p->stoolViralLoad((Now - p->getTimeAtInfection())*365);
                     }
                 }
                 Environment = std::max(0.0, Environment - minusEnvironment);

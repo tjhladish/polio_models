@@ -21,13 +21,13 @@ const double maxAge=100.0;
 double TTE =0;
 
 //Environment parameters
-double delta = 180/(double)365;//mean virus death rate in sand saturated with septic liquor (2003 - WHO Virus survival report)
+const double delta = 180/(double)365;//mean virus death rate in sand saturated with septic liquor (2003 - WHO Virus survival report)
 //assume latrine has dimensions 10x1x1 in units m^3 and evaporation occurs at a rate of 12 mm/day
-double evapRate = .12; //**units in L/day
+const double evapRate = .12; //**units in L/day
 
 
 //Environment contact parameters
-double inactivationRate = (pow(10,.0304))*365; //assumes anaerobic, nonsterile sandy-loam soil avg temp 23 deg C (Hurst paper)
+const double inactivationRate = (pow(10,.0304))*365; //assumes anaerobic, nonsterile sandy-loam soil avg temp 23 deg C (Hurst paper)
 double latrineVolume = 0.0;
 const double feces = .128; //Liters/day
 const double urine = 1.4; //Liters/day
@@ -61,7 +61,7 @@ const double Nab1 = 1000.0; //baseline immunity one month pose immunization?
 const double waningLambda = .75;//unitless
 
 //environmental detection parameters (4/3/2017 - these are just guesses)
-double detectionRate = 1/(double)5; //can detect 1 virus particle in 5 liters of water?
+const double detectionRate = 1/(double)5; //can detect 1 virus particle in 5 liters of water?
 
 
 #endif /* EventDriven_parameters_hpp */
