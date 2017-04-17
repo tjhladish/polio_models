@@ -23,6 +23,7 @@ const double vaccRate = .01;
 //thresholds used to determine when an individual recovers -- needed to end contact events
 const double WPVrecThresh=.17;//used mean shedding duration (for WPV) in prob shedding at t function .17
 const double OPVrecThresh = .24;//used mean shedding duration (for OPV)in prob shedding at t function .24
+const double propToVacc = 0.25;
 
 //Environment contact parameters
 const double inactivationRate = 2*pow(10,.223161);//TCID50 per day assumes surface water at 22 deg C (converted from PFU to TCID5)(Hurst,1989)
