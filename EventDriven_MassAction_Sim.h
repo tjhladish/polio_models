@@ -288,7 +288,7 @@ class EventDriven_MassAction_Sim {
                     swap(age5indx.at(randomIndex),*i);
                 }
             }
-            for(int i=0;i<rint(.25*age5indx.size());i++){
+            for(int i=0;i<rint(propToVacc*age5indx.size());i++){
                 vaccinate(people[age5indx[i]]);
             }
             for(int i=0;i<k;i++){
@@ -365,10 +365,6 @@ class EventDriven_MassAction_Sim {
                 Tc += exp_beta(rng);
             }
             EventQ.push(Event(Tc,"vacc_r",p));
-            //set next time of vaccinations
-            exponential_distribution<double> exp_vacc(vaccRate);
-            double Tv = exp_vacc(rng) + Now;
-            EventQ.push(Event(Tv,"vacc",nullptr));
             return;
 
         }
@@ -381,6 +377,10 @@ class EventDriven_MassAction_Sim {
             p->setInfectionStatus("I_E");
             p->setTimeAtInfection(Now);
             p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
+            if(p->getNumInfectionsEnv()==1){
+                cout<<"in first infection loop: age "<<p->getAge()<<"\n";
+                avgAgeOfFirstInfect.push_back(p->getAge());
+            }
             //is this a paralytic case?
             double r1 = unif_real(rng);
             if(r1<PIR){
@@ -529,11 +529,13 @@ class EventDriven_MassAction_Sim {
                         swap(age5indx.at(randomIndex),*i);
                     }
                 }
-                for(int i=0;i<rint(.25*age5indx.size());i++){
+                for(int i=0;i<rint(propToVacc*age5indx.size());i++){
                     vaccinate(people[age5indx[i]]);
                 }
-            
-                cout<<"in vacc\n";
+                //set next time of vaccination
+                exponential_distribution<double> exp_vacc(vaccRate);
+                double Tv = exp_vacc(rng) + Now;
+                EventQ.push(Event(Tv,"vacc",nullptr));
               }
             else if(event.type=="check_env"){
                 //first update Environment with additions
