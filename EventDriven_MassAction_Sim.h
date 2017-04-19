@@ -209,7 +209,8 @@ class EventDriven_MassAction_Sim {
             people = vector<Person*>(n);
             for (Person* &p: people) p = new Person(people_counter++);
             Now=0.0;
-            //Environment=0.0;
+            Environment=0.0;
+            virusCon=0.0;
             numInfected=0;//keeps track of number of "active" infected and vacc individuals (active means prob shedding >.15,.24)
             //wellVolume = M_PI*.00043*n;//well is right cylinder with radius 1 m and depth is 21.5 m/50,000 people (Quality of Well Water in Owo, SW Nigeria paper)
         }
@@ -224,7 +225,8 @@ class EventDriven_MassAction_Sim {
         const double DEATH;
         const double BETAENV;
         double wellVolume;
-        double Environment =0.0;
+        double Environment;
+        double virusCon;
         //double evapRate; //**units in L/day
     
         exponential_distribution<double> exp_beta;
@@ -268,18 +270,18 @@ class EventDriven_MassAction_Sim {
         void randomizePopulation(int k){
         //temporary initial conditions: these can be changed at a later date
             exponential_distribution<double> age (1/meanAge);
-            vector<int> age5indx;
+            //vector<int> age5indx;
             for(Person* p: people) {
                 p->setAge(min(100.0,age(rng)));
                 p->setInfectionStatus(" ");
-                p->setTiterLevel(2048.0);
+                p->setTiterLevel(1.0);
                 p->setTimeAtInfection(numeric_limits<double>::max());
-                if(p->getAge()<5){
+               /* if(p->getAge()<5){
                     age5indx.push_back(p->getIndex());
-                }
+                }*/
                 death(p); //set when each individual will die
             }
-            double currentIndexCounter=age5indx.size();
+           /* double currentIndexCounter=age5indx.size();
             for(auto i=age5indx.rbegin();i!=age5indx.rend();++i,--currentIndexCounter){
                 uniform_int_distribution<> dis(0,currentIndexCounter-1);
                 const int randomIndex = dis(rng);
@@ -290,13 +292,14 @@ class EventDriven_MassAction_Sim {
             }
             for(int i=0;i<rint(propToVacc*age5indx.size());i++){
                 vaccinate(people[age5indx[i]]);
-            }
+            }*/
             for(int i=0;i<k;i++){
                 infect(people[i]);//infects first person in vector
             }
-            exponential_distribution<double> checkEnvironment(chkEnvRate);
+          /*  exponential_distribution<double> checkEnvironment(chkEnvRate);
             double Te = checkEnvironment(rng) + Now;
             EventQ.push(Event(Te,"check_env",nullptr));//nullptr since checking env does not involve a person
+           */
         }
         
         void printPeople(){
@@ -316,6 +319,9 @@ class EventDriven_MassAction_Sim {
                 vecSum+=avgAgeOfFirstInfect[i];
             }
             return vecSum/avgAgeOfFirstInfect.size();
+        }
+        double R0(){
+            return numInfected;
         }
 
 
@@ -404,14 +410,13 @@ class EventDriven_MassAction_Sim {
             if((p->getAge()+deathAge)>100.0){
                 Td = p->deathTime() + Now;
             }
-            cout<<"death time " <<Td<<"\n";
             EventQ.push(Event(Td,"death",p));
             return;
         }
     
         void environmentalSurveillance(){
             
-            if((Environment/wellVolume)>detectionRate){//Environment means virus particles
+            if(virusCon>detectionRate){//Environment means virus particles
                 cout<<"detected pathogen in water\n";
             }
             else{
@@ -436,9 +441,9 @@ class EventDriven_MassAction_Sim {
                 minusEnvironment += exp_virusDeath(rng);; //keeps track of decay rate until it is needed (i.e. used for an event) then is reset
             }
             for(Person* p: people) {
-                if(p->getAge()<5){//only care about age up to 5 for vacc
+               /* if(p->getAge()<5){//only care about age up to 5 for vacc
                     p->updateAge(timeStep);
-                }
+                }*/
                 // does this person contact the environment?
                 exponential_distribution<double> exp_betaEnvironment(BETAENV);//**temporary contact rate
                 double rand2 = unif_real(rng);
@@ -482,6 +487,9 @@ class EventDriven_MassAction_Sim {
             else if (event.type == "inf_r") {//recovery from vacc and WPV may be different
                 TTE=Now;
                 numInfected--;
+                if(individual->getIndex()==0){
+                    return 0;
+                }
             }
             else if(event.type=="vacc_r"){
                 TTE=Now;
@@ -489,6 +497,9 @@ class EventDriven_MassAction_Sim {
             }
             else if(event.type=="death"){
                 cout<<"death\n";
+                if(individual->getIndex()==0){
+                    return 0;
+                }
                 //updates numInfected count if individual that dies is still infected
                 if(individual->probShedding(Now)<individual->sheddingThreshold(individual->getInfectionStatus())){
                     numInfected--;
@@ -501,15 +512,15 @@ class EventDriven_MassAction_Sim {
                 double r3 = unif_real(rng);
                 for(Person* p: people){
                     if(p->getInfectionStatus()!= " " and r3 < p->probShedding(Now)){
-                        Environment+=(1/(double)10000000)*p->gramsDailyFeces(Now)*p->stoolViralLoad(Now);//1/1000th of virus particles end up in well
+                        Environment+=p->gramsDailyFeces(Now)*p->stoolViralLoad(Now);//1/1000th of virus particles end up in well
                     }
                 }
-                //next update Environment to exclude inactivated virus
-                Environment = max(0.0, Environment - minusEnvironment);
+                //next update virus concentration in water source to exclude inactivated virus
+                virusCon = ((1/(double)100000)*Environment/wellVolume)*minusEnvironment;
                 minusEnvironment=0;
                 double rand2 = unif_real(rng);
                 if(rand2 < individual->probInfGivenDose("I_E")){
-                    envDose = .5*Environment/wellVolume;//.5 is num Liters of water drank in a single sitting
+                    envDose = .5*virusCon;//.5 is num Liters of water drank in a single sitting
                     infectByEnvironment(individual);
                 }
             }
@@ -543,11 +554,11 @@ class EventDriven_MassAction_Sim {
                 for(Person* p: people){
                     if(p->getInfectionStatus()!=" " and r3 < p->probShedding(Now)){
                         cout<<"stool viral load "<< p->stoolViralLoad(Now)<<"\n";
-                        Environment+=(1/(double)10000000)*p->gramsDailyFeces(Now)*p->stoolViralLoad(Now);//1/10th of virus particles end up in well
+                        Environment+=p->gramsDailyFeces(Now)*p->stoolViralLoad(Now);//1/1000th of virus particles end up in well
                     }
                 }
-                //next update Environment to exclude inactivated virus
-                Environment = max(0.0, Environment - minusEnvironment);
+                //next update virus concentration in water source to exclude inactivated virus
+                virusCon = ((1/(double)100000)*Environment/wellVolume)*minusEnvironment;
                 minusEnvironment=0;
                 environmentalSurveillance();
             }
