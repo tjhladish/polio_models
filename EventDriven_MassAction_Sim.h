@@ -250,6 +250,8 @@ class EventDriven_MassAction_Sim {
         int people_counter; 
         double Now;
         int numInfected;
+    double counter=0.0;
+    int ii = 1;
     
     
 
@@ -326,16 +328,16 @@ class EventDriven_MassAction_Sim {
 
 
         void infect(Person* p) {
-            cout<<"infection\n";
+            //cout<<"infection\n";
             numInfected++;
             p->setNumInfections();
-            cout<<"person "<<p->getIndex()<<"\n";
-            cout<<"num of infections "<<p->getNumInfections()<<"\n";
+            //cout<<"person "<<p->getIndex()<<"\n";
+            //cout<<"num of infections "<<p->getNumInfections()<<"\n";
             p->setInfectionStatus("I");
             p->setTimeAtInfection(Now);
             p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
             if(p->getNumInfections()==1){
-                cout<<"in first infection loop: age "<<p->getAge()<<"\n";
+                //cout<<"in first infection loop: age "<<p->getAge()<<"\n";
                 avgAgeOfFirstInfect.push_back(p->getAge());
             }
             //is this a paralytic case?
@@ -344,23 +346,27 @@ class EventDriven_MassAction_Sim {
                 timeOfParalyticCase.push_back(Now);
             }
             // time to next human-human contact
+            int numContacts=0;
             exponential_distribution<double> exp_beta(BETA);
             double Tc = exp_beta(rng) + Now;
             while (p->probShedding(Tc)>WPVrecThresh) {     // does contact occur before recovery?
                 EventQ.push(Event(Tc,"inf_c",p));
                 Tc += exp_beta(rng);
+                numContacts++;
             }
+            cout<<"numContacts "<<numContacts<<"\n";
             EventQ.push(Event(Tc,"inf_r",p));//recovery used for decrementing # of infecteds
+            cout<<"recovery time "<<Tc<<"\n";
             return;
         }
 
         void vaccinate(Person* p){
-            cout<<"in vaccinate\n";
+           // cout<<"in vaccinate\n";
             numInfected++;
             p->setInfectionStatus("V");
             p->setNumVaccinations();
-            cout<<"person "<<p->getIndex()<<"\n";
-            cout<<"num vaccinations "<<p->getNumVaccinations()<<"\n";
+            //cout<<"person "<<p->getIndex()<<"\n";
+            //cout<<"num vaccinations "<<p->getNumVaccinations()<<"\n";
             p->setTimeAtInfection(Now);
             p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
             // time to next contact
@@ -378,8 +384,8 @@ class EventDriven_MassAction_Sim {
         void infectByEnvironment(Person* p){
             numInfected++;
             p->setNumInfectionsEnv();
-            cout<<"person "<<p->getIndex()<<"\n";
-            cout<<"num environmental infect "<<p->getNumInfectionsEnv()<<"\n";
+            //cout<<"person "<<p->getIndex()<<"\n";
+            //cout<<"num environmental infect "<<p->getNumInfectionsEnv()<<"\n";
             p->setInfectionStatus("I_E");
             p->setTimeAtInfection(Now);
             p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
@@ -433,8 +439,15 @@ class EventDriven_MassAction_Sim {
             if(numInfected==0 or EventQ.empty()) return 0;
             Event event = EventQ.top();
             Now = event.time;
-            cout<<"Now "<<Now<<"\n";
-            cout<<"event "<<event.type<<"\n";
+            //cout<<"Now "<<Now<<"\n";
+            //cout<<"event "<<event.type<<"\n";
+            if(Now>counter){
+                cout<<"simulation "<< ii<<"\n";
+                cout<<"Now "<<Now<<"\n";
+                cout<<" queue size "<<EventQ.size()<<"\n";
+                counter+=.1;
+                ii++;
+            }
             double timeStep = Now - previousTime[0];
             if(timeStep!=0){
                 exponential_distribution<double> exp_virusDeath(inactivationRate*timeStep*365);
@@ -496,7 +509,7 @@ class EventDriven_MassAction_Sim {
                 numInfected--;
             }
             else if(event.type=="death"){
-                cout<<"death\n";
+                //cout<<"death\n";
                 if(individual->getIndex()==0){
                     return 0;
                 }
