@@ -442,7 +442,7 @@ class EventDriven_MassAction_Sim {
             //cout<<"Now "<<Now<<"\n";
             //cout<<"event "<<event.type<<"\n";
             if(Now>counter){
-                cout<<"simulation "<< ii<<"\n";
+                cout<<"Loop "<< ii<<"\n";
                 cout<<"Now "<<Now<<"\n";
                 cout<<" queue size "<<EventQ.size()<<"\n";
                 counter+=.1;
