@@ -16,10 +16,10 @@ int main() {
     double vecSumm=0.0;
     double firstInfecSum=0.0;
     vector<double> R0;
-    
+    int seed = 0;
     
     for(int i=0; i<numSims; i++) {
-        EventDriven_MassAction_Sim sim(N,BETA,BIRTH,DEATH, BETAENV);
+        EventDriven_MassAction_Sim sim(N,BETA,BIRTH,DEATH, BETAENV, seed);
         sim.randomizePopulation(1);//randomize with # of infecteds 
         //sim.printPeople();
         sim.runSimulation();
