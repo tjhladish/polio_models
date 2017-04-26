@@ -5,6 +5,7 @@
 #include <vector>
 #include <iostream>
 #include <queue>
+#include <unordered_set>
 #include <random>
 #include <assert.h>
 #include <array>
@@ -20,7 +21,7 @@
 
 using namespace std;
 
-enum EventType { VACCINATED_CONTACT, INFECTIOUS_CONTACT, ENVIRONMENT_CONTACT, INFECTION_RECOVERY, VACCINE_RECOVERY, CHECK_ENVIRONMENT, VACCINATE, DEATH, NUM_OF_EVENT_TYPES};
+enum EventType { VACCINATED_CONTACT, INFECTIOUS_CONTACT, ENVIRONMENT_CONTACT, START_SHEDDING, INFECTION_RECOVERY, VACCINE_RECOVERY, CHECK_ENVIRONMENT, VACCINATE, DEATH, NUM_OF_EVENT_TYPES};
 
 class Person{
     friend class Event;
@@ -205,16 +206,21 @@ class EventDriven_MassAction_Sim {
     public:
                                     // constructor
         //EventDriven_MassAction_Sim(const int n, const double beta, const double birth, const double death, const double betaenv): rng((random_device())()), BETA(beta), BIRTH_RATE(birth), DEATH_RATE(death), BETAENV(betaenv),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
-        EventDriven_MassAction_Sim(const int n, const double beta, const double birth, const double death, const double betaenv, int seed = (random_device())()): rng(seed), BETA(beta), BIRTH_RATE(birth), DEATH_RATE(death), BETAENV(betaenv),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
+        EventDriven_MassAction_Sim(const int n, const double beta, const double birth, const double death, int seed = (random_device())()): rng(seed), BETA(beta), BIRTH_RATE(birth), DEATH_RATE(death), unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
             previousTime = {0};
             people = vector<Person*>(n);
-            for (Person* &p: people) p = new Person(people_counter++);
+            event_counter = vector<int>(NUM_OF_EVENT_TYPES, 0);
+            for (Person* &p: people) {
+                p = new Person(people_counter++);
+                EventQ.emplace(unif_real(rng)/365, ENVIRONMENT_CONTACT, p); // initial contacts with environment
+                event_counter[ENVIRONMENT_CONTACT]++;
+                //cerr << EventQ.size() << endl;
+            }
             Now=0.0;
             Environment=0.0;
             virusCon=0.0;
             numInfected=0;//keeps track of number of "active" infected and vacc individuals (active means prob shedding >.15,.24)
             //wellVolume = M_PI*.00043*n;//well is right cylinder with radius 1 m and depth is 21.5 m/50,000 people (Quality of Well Water in Owo, SW Nigeria paper)
-            event_counter = vector<int>(NUM_OF_EVENT_TYPES, 0);
         }
 
         ~EventDriven_MassAction_Sim() {
@@ -225,7 +231,6 @@ class EventDriven_MassAction_Sim {
         const double BETA;
         const double BIRTH_RATE; // currently isn't used
         const double DEATH_RATE;
-        const double BETAENV;
         double wellVolume;
         double Environment;
         double virusCon;
@@ -233,7 +238,6 @@ class EventDriven_MassAction_Sim {
 
         exponential_distribution<double> exp_beta;
         exponential_distribution<double> exp_death;
-        exponential_distribution<double> exp_betaEnvironment;
         exponential_distribution<double> exp_checkEnvironment;
         exponential_distribution<double> exp_vacc;
         uniform_real_distribution<double> unif_real;
@@ -242,6 +246,7 @@ class EventDriven_MassAction_Sim {
 
         //containers to keep track of various pieces of information
         vector<Person*> people;
+        unordered_set<Person*> shedding_people;
         priority_queue<Event, vector<Event>, compTime > EventQ;
         array<double,1>previousTime;
         array<double,1>finalTime;
@@ -300,11 +305,6 @@ class EventDriven_MassAction_Sim {
             for(int i=0;i<k;i++){
                 infect(people[i]);//infects first person in vector
             }
-          /*  exponential_distribution<double> checkEnvironment(chkEnvRate);
-            double Te = checkEnvironment(rng) + Now;
-            EventQ.push(Event(Te,CHECK_ENVIRONMENT,nullptr));//nullptr since checking env does not involve a person
-            event_counter[CHECK_ENVIRONMENT]++;
-           */
         }
 
         void printPeople(){
@@ -353,14 +353,14 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);
             double Tc = exp_beta(rng) + Now;
             while (p->probShedding(Tc)>WPVrecThresh) {     // does contact occur before recovery?
-                EventQ.push(Event(Tc,INFECTIOUS_CONTACT,p));
+                EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
                 event_counter[INFECTIOUS_CONTACT]++;
                 Tc += exp_beta(rng);
                 numContacts++;
             }
             cout<<"numContacts "<<numContacts<<"\n";
             // tjh - not crazy about pushing Tc as a recovery event.  it *looks* like a bug even if it's not
-            EventQ.push(Event(Tc,INFECTION_RECOVERY,p));//recovery used for decrementing # of infecteds
+            EventQ.emplace(Tc,INFECTION_RECOVERY,p);//recovery used for decrementing # of infecteds
             event_counter[INFECTION_RECOVERY]++;
             cout<<"recovery time "<<Tc<<"\n";
             return;
@@ -379,11 +379,11 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (p->probShedding(Tc)>OPVrecThresh) {     // does contact occur before recovery?
-                EventQ.push(Event(Tc,VACCINATED_CONTACT,p));
+                EventQ.emplace(Tc,VACCINATED_CONTACT,p);
                 event_counter[VACCINATED_CONTACT]++;
                 Tc += exp_beta(rng);
             }
-            EventQ.push(Event(Tc,VACCINE_RECOVERY,p));
+            EventQ.emplace(Tc,VACCINE_RECOVERY,p);
             event_counter[VACCINE_RECOVERY]++;
             return;
 
@@ -410,11 +410,11 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//contact rate
             double Tc = exp_beta(rng) + Now;
             while (p->probShedding(Tc)>WPVrecThresh) {     // does contact occur before recovery?
-                EventQ.push(Event(Tc,INFECTIOUS_CONTACT,p));
+                EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
                 event_counter[INFECTIOUS_CONTACT]++;
                 Tc += exp_beta(rng);
             }
-            EventQ.push(Event(Tc,INFECTION_RECOVERY,p));
+            EventQ.emplace(Tc,INFECTION_RECOVERY,p);
             event_counter[INFECTION_RECOVERY]++;
             cout<<"recovery\n";
             return;
@@ -426,7 +426,7 @@ class EventDriven_MassAction_Sim {
             if((p->getAge()+deathAge)>100.0){
                 Td = p->deathTime() + Now;
             }
-            EventQ.push(Event(Td,DEATH,p));
+            EventQ.emplace(Td,DEATH,p);
             event_counter[DEATH]++;
             return;
         }
@@ -442,7 +442,7 @@ class EventDriven_MassAction_Sim {
             //after each ES event generate time to next one
             exponential_distribution<double> checkEnvironment(chkEnvRate);//**temp check rate--needs to change
             double Te = checkEnvironment(rng) + Now;
-            EventQ.push(Event(Te,CHECK_ENVIRONMENT,nullptr));
+            EventQ.emplace(Te,CHECK_ENVIRONMENT,nullptr);
             event_counter[CHECK_ENVIRONMENT]++;
             return;
         }
@@ -459,34 +459,21 @@ class EventDriven_MassAction_Sim {
                 cout<<" queue size "<<EventQ.size()<<"\n";
                 cout << "\tVACCINATED_CONTACT: " << event_counter[VACCINATED_CONTACT] << endl;
                 cout << "\tINFECTIOUS_CONTACT: " << event_counter[INFECTIOUS_CONTACT] << endl;
+                cout << "\tSTART_SHEDDING: " << event_counter[START_SHEDDING] << endl;
                 cout << "\tENVIRONMENT_CONTACT: " << event_counter[ENVIRONMENT_CONTACT] << endl;
                 cout << "\tINFECTION_RECOVERY: " << event_counter[INFECTION_RECOVERY] << endl;
                 cout << "\tVACCINE_RECOVERY: " << event_counter[VACCINE_RECOVERY] << endl;
                 cout << "\tCHECK_ENVIRONMENT: " << event_counter[CHECK_ENVIRONMENT] << endl;
                 cout << "\tVACCINATE: " << event_counter[VACCINATE] << endl;
                 cout << "\tDEATH: " << event_counter[DEATH] << endl;
-                counter+=.1;
+                counter+=.5;
                 ii++;
             }
-            double timeStep = Now - previousTime[0];
+            const double timeStep = Now - previousTime[0];
             if(timeStep!=0){
-                exponential_distribution<double> exp_virusDeath(inactivationRate*timeStep*365);
-                minusEnvironment += exp_virusDeath(rng);; //keeps track of decay rate until it is needed (i.e. used for an event) then is reset
+                Environment *= exp(-inactivationRate*timeStep*365);
             }
-            for(Person* p: people) {
-               /* if(p->getAge()<5){//only care about age up to 5 for vacc
-                    p->updateAge(timeStep);
-                }*/
-                // does this person contact the environment?
-                exponential_distribution<double> exp_betaEnvironment(BETAENV);//**temporary contact rate
-                double rand2 = unif_real(rng);
-                double TceStep = exp_betaEnvironment(rng);
-                double Tce = TceStep+Now;
-                if(rand2 < TceStep){
-                    EventQ.push(Event(Tce,ENVIRONMENT_CONTACT,p));
-                    event_counter[ENVIRONMENT_CONTACT]++;
-                }
-            }
+
             Person* individual = event.person;
             if(event.type==INFECTIOUS_CONTACT){//includes contact with infected and infected by environment
                 //cout<<"in contact\n";
@@ -501,6 +488,8 @@ class EventDriven_MassAction_Sim {
                 //contacted person is infected if probability of infection given appropriate dose is sufficiently low
                 if(r1 < contact->probInfGivenDose("I")){
                     infect(contact);
+                    EventQ.emplace(Now+30.0/365, START_SHEDDING, individual);
+                    event_counter[START_SHEDDING]++;
                 }
 
             }
@@ -516,11 +505,14 @@ class EventDriven_MassAction_Sim {
                 //contacted person is infected if probability of infection given appropriate dose is sufficiently low
                 if(r1 < contact->probInfGivenDose("I")){//contact w/vacc individual can induce infection
                     infect(contact);
+                    EventQ.emplace(Now+30.0/365, START_SHEDDING, individual);
+                    event_counter[START_SHEDDING]++;
                 }
             }
             else if (event.type == INFECTION_RECOVERY) {//recovery from vacc and WPV may be different
                 TTE=Now;
                 numInfected--;
+                shedding_people.erase(individual);
                 if(individual->getIndex()==0){
                     return 0;
                 }
@@ -528,6 +520,7 @@ class EventDriven_MassAction_Sim {
             else if(event.type== VACCINE_RECOVERY){
                 TTE=Now;
                 numInfected--;
+                shedding_people.erase(individual);
             }
             else if(event.type==DEATH){
                 //cout<<"death\n";
@@ -535,28 +528,30 @@ class EventDriven_MassAction_Sim {
                     return 0;
                 }
                 //updates numInfected count if individual that dies is still infected
-                if(individual->probShedding(Now)<individual->sheddingThreshold(individual->getInfectionStatus())){
-                    numInfected--;
-                }
+                shedding_people.erase(individual);
                 individual->reset();//keeps population constant
                 death(individual);//give each new person a death
             }
             else if(event.type==ENVIRONMENT_CONTACT){
-                //first update Environment with additions
-                double r3 = unif_real(rng);
-                for(Person* p: people){
-                    if(p->getInfectionStatus()!= " " and r3 < p->probShedding(Now)){
-                        Environment+=p->gramsDailyFeces(Now)*p->stoolViralLoad(Now);//1/1000th of virus particles end up in well
-                    }
-                }
                 //next update virus concentration in water source to exclude inactivated virus
-                virusCon = ((1/(double)100000)*Environment/wellVolume)*minusEnvironment;
-                minusEnvironment=0;
-                double rand2 = unif_real(rng);
-                if(rand2 < individual->probInfGivenDose("I_E")){
-                    envDose = .5*virusCon;//.5 is num Liters of water drank in a single sitting
+                virusCon = ((1/(double)100000)*Environment/wellVolume);
+                if(unif_real(rng) < individual->probInfGivenDose("I_E")){
+                    envDose = 2*virusCon; //2 is num Liters of (potentially contaminated) water consumed per day 
                     infectByEnvironment(individual);
+                    EventQ.emplace(Now+30.0/365, START_SHEDDING, individual);
+                    event_counter[START_SHEDDING]++;
                 }
+
+                //update Environment with additions
+                if (shedding_people.count(individual) > 0){ // if person is shedding
+                    Environment += gramsFeces * individual->stoolViralLoad(Now);//1/1000th of virus particles end up in well
+                }
+
+                EventQ.emplace(Now+1.0/365, ENVIRONMENT_CONTACT, individual); // initial contacts with environment
+                event_counter[ENVIRONMENT_CONTACT]++;
+            }
+            else if (event.type==START_SHEDDING) {
+                shedding_people.insert(individual);
             }
             else if(event.type==VACCINATE){
                 vector<int> age5indx;
@@ -575,12 +570,14 @@ class EventDriven_MassAction_Sim {
                     }
                 }
                 for(int i=0;i<rint(propToVacc*age5indx.size());i++){
-                    vaccinate(people[age5indx[i]]);
+                    Person* vaccinee = people[age5indx[i]];
+                    vaccinate(vaccinee);
+                    EventQ.emplace(Now+30.0/365, START_SHEDDING, vaccinee);
+                    event_counter[START_SHEDDING]++;
                 }
                 //set next time of vaccination
-                exponential_distribution<double> exp_vacc(vaccRate);
-                double Tv = exp_vacc(rng) + Now;
-                EventQ.push(Event(Tv,VACCINATE,nullptr));
+                double Tv = Now + vaccRate;
+                EventQ.emplace(Tv,VACCINATE,nullptr);
                 event_counter[VACCINATE]++;
               }
             else if(event.type==CHECK_ENVIRONMENT){

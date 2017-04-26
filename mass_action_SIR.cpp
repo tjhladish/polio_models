@@ -3,15 +3,14 @@
 
 int main() {
     int numSims = 1;
-    int N        = 1000;
+    int N        = 10000;
     //double GAMMA = 13;
     
     //double KAPPA = .8434;
     //double RHO = .02;
-    double BIRTH = .008;//Pakistan death rate per year
-    double DEATH = .008;
+    double BIRTH = .015;//Pakistan death rate per year
+    double DEATH = .015;
     double BETA  = 5;
-    double BETAENV = 5;//contact environment once per day
 
     double vecSumm=0.0;
     double firstInfecSum=0.0;
@@ -19,7 +18,8 @@ int main() {
     int seed = 0;
     
     for(int i=0; i<numSims; i++) {
-        EventDriven_MassAction_Sim sim(N,BETA,BIRTH,DEATH, BETAENV, seed);
+        EventDriven_MassAction_Sim sim(N,BETA,BIRTH,DEATH);
+        //EventDriven_MassAction_Sim sim(N,BETA,BIRTH,DEATH, seed);
         sim.randomizePopulation(1);//randomize with # of infecteds 
         //sim.printPeople();
         sim.runSimulation();

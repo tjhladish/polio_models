@@ -13,13 +13,13 @@
 #include <math.h>
 
 
-
+const double NEWBORN = 7.0/12; //less than 7 months old
 const double PIR = 0.001; //type 3 paralysis incidence rate
 const double maxTiter = 2048.0;
 const double maxAge=100.0;
 const double meanAge=18;//Nigeria mean age
 double TTE =0;
-const double vaccRate = .01;
+const double vaccRate = 1.0;// period in years between vaccination campaigns
 //thresholds used to determine when an individual recovers -- needed to end contact events
 const double WPVrecThresh=.17;//used mean shedding duration (for WPV) in prob shedding at t function .17
 const double OPVrecThresh = .24;//used mean shedding duration (for OPV)in prob shedding at t function .24
