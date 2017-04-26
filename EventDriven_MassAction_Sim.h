@@ -20,7 +20,7 @@
 
 using namespace std;
 
-enum EventType { VACCINATED_CONTACT, INFECTIOUS_CONTACT, ENVIRONMENT_CONTACT, INFECTION_RECOVERY, VACCINE_RECOVERY, CHECK_ENVIRONMENT, VACCINATE, DEATH, NUM_OF_EVENT_TYPES};
+
 
 class Person{
     friend class Event;
@@ -34,16 +34,16 @@ class Person{
     int m_numInfectionsEnv;
     string m_infectionStatus; //I, V, or I_E (infection by environment) - cause of most recent infection
     const int m_index;
-
+    
     public:
     //default constructor
     Person(int idx, double age=0, double titerLevel=1.0, double timeAtInfection=numeric_limits<double>::max(), string infStat = " ", int numInf=0,int numVacc=0,int numInfEnv=0):m_age(age),m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection), m_infectionStatus(infStat),m_numInfections(numInf),m_numVaccinations(numVacc),m_numInfectionsEnv(numInfEnv),m_index(idx){
-
+        
     }
     int getIndex () const {
         return m_index;
     }
-
+    
     void setAge(double age){
         m_age = age;
     }
@@ -109,7 +109,7 @@ class Person{
     string getInfectionStatus(){
         return m_infectionStatus;
     }
-
+    
     double probInfGivenDose(string infstat){//dose will vary based on if it is WPV or OPV, used mean of all shape parameters
         if(infstat=="I"){
             return 1-pow((1.0+(infDose/betaDose)),-alphaDose*pow(m_titerLevel,-gammaDose));
@@ -136,7 +136,7 @@ class Person{
             return ((Smax-Smin)*exp((7-(m_age*12))/tau)+Smin);
         }
     }
-
+    
     double probShedding(double t){
         const double tnew = (t - m_timeAtInfection)*365;//***t needs to be time since infection (days)
         if(m_infectionStatus=="I" or m_infectionStatus=="I_E"){
@@ -146,7 +146,7 @@ class Person{
             return .5*erfc((log(tnew)-(log(muOPV)-log(deltaShedding)*log(m_titerLevel)))/sqrt(2.0)*log(sigmaOPV));
         }
     }
-
+    
     double stoolViralLoad(double t){
         const double tnew = (t - m_timeAtInfection)*365;//***t needs to be time since infection (days)
         if(tnew<30){
@@ -161,7 +161,7 @@ class Person{
         const double tnew = (t - m_timeAtInfection)*365;
         return gramsFeces*tnew;
     }
-
+    
     void print(int i){
         std::cout<<"Attributes for person: "<<(i+1)<<" : "<<m_age<<" , "<<m_titerLevel<<" ,"<<m_infectionStatus<<" , "<<m_timeAtInfection<<"\n";
     }
@@ -171,12 +171,12 @@ class Event {
     friend class Person;
 public:
     double time;
-    EventType type;
+    string type;
     Person* person;
 
-
+    
     // Event(const Event& o) {time = o.time; type=o.type;}//*** this is a copy constructor
-    Event(double t, EventType e, Person* p):time(t),type(e),person(p){} // *** this is a constructor
+    Event(double t=0.0, string e="r",Person* p = 0):time(t),type(e),person(p){} // *** this is a constructor
     // Event& operator=(const Event& o) {
     //     if(this != &o){
     //         time = o.time;
@@ -184,17 +184,17 @@ public:
     //     }
     //     return *this;
     // } //*** this is copy assignment operator
-
+    
 };
 
 class compTime {
 public:
     //two in case we use pointers at some point
     bool operator() (const Event* lhs, const Event* rhs) const {
-
+        
         return (lhs->time>rhs->time); //(->) is a reference operator for pointers
     }
-
+    
     bool operator() (const Event& lhs, const Event& rhs) const {
         return (lhs.time>rhs.time);
     }
@@ -204,8 +204,7 @@ public:
 class EventDriven_MassAction_Sim {
     public:
                                     // constructor
-        //EventDriven_MassAction_Sim(const int n, const double beta, const double birth, const double death, const double betaenv): rng((random_device())()), BETA(beta), BIRTH_RATE(birth), DEATH_RATE(death), BETAENV(betaenv),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
-        EventDriven_MassAction_Sim(const int n, const double beta, const double birth, const double death, const double betaenv, int seed = (random_device())()): rng(seed), BETA(beta), BIRTH_RATE(birth), DEATH_RATE(death), BETAENV(betaenv),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
+        EventDriven_MassAction_Sim(const int n, const double beta, const double birth, const double death, const double betaenv): rng((random_device())()), BETA(beta), BIRTH(birth), DEATH(death), BETAENV(betaenv),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
             previousTime = {0};
             people = vector<Person*>(n);
             for (Person* &p: people) p = new Person(people_counter++);
@@ -214,7 +213,6 @@ class EventDriven_MassAction_Sim {
             virusCon=0.0;
             numInfected=0;//keeps track of number of "active" infected and vacc individuals (active means prob shedding >.15,.24)
             //wellVolume = M_PI*.00043*n;//well is right cylinder with radius 1 m and depth is 21.5 m/50,000 people (Quality of Well Water in Owo, SW Nigeria paper)
-            event_counter = vector<int>(NUM_OF_EVENT_TYPES, 0);
         }
 
         ~EventDriven_MassAction_Sim() {
@@ -223,14 +221,14 @@ class EventDriven_MassAction_Sim {
 
 
         const double BETA;
-        const double BIRTH_RATE; // currently isn't used
-        const double DEATH_RATE;
+        const double BIRTH;
+        const double DEATH;
         const double BETAENV;
         double wellVolume;
         double Environment;
         double virusCon;
         //double evapRate; //**units in L/day
-
+    
         exponential_distribution<double> exp_beta;
         exponential_distribution<double> exp_death;
         exponential_distribution<double> exp_betaEnvironment;
@@ -239,7 +237,7 @@ class EventDriven_MassAction_Sim {
         uniform_real_distribution<double> unif_real;
         uniform_int_distribution<int> unif_int;
         mt19937 rng;
-
+    
         //containers to keep track of various pieces of information
         vector<Person*> people;
         priority_queue<Event, vector<Event>, compTime > EventQ;
@@ -248,16 +246,16 @@ class EventDriven_MassAction_Sim {
         vector<double> timeOfParalyticCase;
         vector<double> avgAgeOfFirstInfect;
 
-
-        int people_counter;
+    
+        int people_counter; 
         double Now;
         int numInfected;
     double counter=0.0;
     int ii = 1;
-    vector<int> event_counter;
+    
+    
 
-
-
+    
         void runSimulation(){
             wellVolume = M_PI*.00043*people.size();//assume well volume stays constant
             //assume evaporation occurs at a rate of 12 mm/day
@@ -270,7 +268,7 @@ class EventDriven_MassAction_Sim {
                 continue;
             }
         }
-
+    
         void randomizePopulation(int k){
         //temporary initial conditions: these can be changed at a later date
             exponential_distribution<double> age (1/meanAge);
@@ -284,12 +282,16 @@ class EventDriven_MassAction_Sim {
                     age5indx.push_back(p->getIndex());
                 }*/
                 death(p); //set when each individual will die
+                //environmental contact
+                exponential_distribution<double> exp_betaEnvironment(BETAENV);
+                double Tce = exp_betaEnvironment(rng)+Now;
+                EventQ.push(Event(Tce,"env_c",p));
             }
            /* double currentIndexCounter=age5indx.size();
             for(auto i=age5indx.rbegin();i!=age5indx.rend();++i,--currentIndexCounter){
                 uniform_int_distribution<> dis(0,currentIndexCounter-1);
                 const int randomIndex = dis(rng);
-
+                
                 if(*i !=age5indx.at(randomIndex)){
                     swap(age5indx.at(randomIndex),*i);
                 }
@@ -302,22 +304,21 @@ class EventDriven_MassAction_Sim {
             }
           /*  exponential_distribution<double> checkEnvironment(chkEnvRate);
             double Te = checkEnvironment(rng) + Now;
-            EventQ.push(Event(Te,CHECK_ENVIRONMENT,nullptr));//nullptr since checking env does not involve a person
-            event_counter[CHECK_ENVIRONMENT]++;
+            EventQ.push(Event(Te,"check_env",nullptr));//nullptr since checking env does not involve a person
            */
         }
-
+        
         void printPeople(){
             for(unsigned int i = 0; i<people.size(); ++i) {
                 people[i]->print(i);
             }
         }
-
+    
 
         double FinalTime(){
             return TTE;
         }
-
+    
         double avgFirstInfec(){
             double vecSum=0.0;
             for(int i=0;i<avgAgeOfFirstInfect.size();i++){
@@ -353,15 +354,12 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);
             double Tc = exp_beta(rng) + Now;
             while (p->probShedding(Tc)>WPVrecThresh) {     // does contact occur before recovery?
-                EventQ.push(Event(Tc,INFECTIOUS_CONTACT,p));
-                event_counter[INFECTIOUS_CONTACT]++;
+                EventQ.push(Event(Tc,"inf_c",p));
                 Tc += exp_beta(rng);
                 numContacts++;
             }
             cout<<"numContacts "<<numContacts<<"\n";
-            // tjh - not crazy about pushing Tc as a recovery event.  it *looks* like a bug even if it's not
-            EventQ.push(Event(Tc,INFECTION_RECOVERY,p));//recovery used for decrementing # of infecteds
-            event_counter[INFECTION_RECOVERY]++;
+            EventQ.push(Event(Tc,"inf_r",p));//recovery used for decrementing # of infecteds
             cout<<"recovery time "<<Tc<<"\n";
             return;
         }
@@ -379,16 +377,14 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//**temporary contact rate
             double Tc = exp_beta(rng) + Now;
             while (p->probShedding(Tc)>OPVrecThresh) {     // does contact occur before recovery?
-                EventQ.push(Event(Tc,VACCINATED_CONTACT,p));
-                event_counter[VACCINATED_CONTACT]++;
+                EventQ.push(Event(Tc,"vacc_c",p));
                 Tc += exp_beta(rng);
             }
-            EventQ.push(Event(Tc,VACCINE_RECOVERY,p));
-            event_counter[VACCINE_RECOVERY]++;
+            EventQ.push(Event(Tc,"vacc_r",p));
             return;
 
         }
-
+    
         void infectByEnvironment(Person* p){
             numInfected++;
             p->setNumInfectionsEnv();
@@ -410,29 +406,26 @@ class EventDriven_MassAction_Sim {
             exponential_distribution<double> exp_beta(BETA);//contact rate
             double Tc = exp_beta(rng) + Now;
             while (p->probShedding(Tc)>WPVrecThresh) {     // does contact occur before recovery?
-                EventQ.push(Event(Tc,INFECTIOUS_CONTACT,p));
-                event_counter[INFECTIOUS_CONTACT]++;
+                EventQ.push(Event(Tc,"inf_c",p));
                 Tc += exp_beta(rng);
             }
-            EventQ.push(Event(Tc,INFECTION_RECOVERY,p));
-            event_counter[INFECTION_RECOVERY]++;
+            EventQ.push(Event(Tc,"inf_r",p));
             cout<<"recovery\n";
             return;
         }
         void death(Person* p){
-            exponential_distribution<double> exp_death(DEATH_RATE);
+            exponential_distribution<double> exp_death(DEATH);
             double deathAge = exp_death(rng);
             double Td = deathAge + Now;
             if((p->getAge()+deathAge)>100.0){
                 Td = p->deathTime() + Now;
             }
-            EventQ.push(Event(Td,DEATH,p));
-            event_counter[DEATH]++;
+            EventQ.push(Event(Td,"death",p));
             return;
         }
-
+    
         void environmentalSurveillance(){
-
+            
             if(virusCon>detectionRate){//Environment means virus particles
                 cout<<"detected pathogen in water\n";
             }
@@ -442,11 +435,10 @@ class EventDriven_MassAction_Sim {
             //after each ES event generate time to next one
             exponential_distribution<double> checkEnvironment(chkEnvRate);//**temp check rate--needs to change
             double Te = checkEnvironment(rng) + Now;
-            EventQ.push(Event(Te,CHECK_ENVIRONMENT,nullptr));
-            event_counter[CHECK_ENVIRONMENT]++;
+            EventQ.push(Event(Te,"check_env",nullptr));
             return;
         }
-
+    
         int nextEvent() {
             if(numInfected==0 or EventQ.empty()) return 0;
             Event event = EventQ.top();
@@ -457,38 +449,47 @@ class EventDriven_MassAction_Sim {
                 cout<<"Loop "<< ii<<"\n";
                 cout<<"Now "<<Now<<"\n";
                 cout<<" queue size "<<EventQ.size()<<"\n";
-                cout << "\tVACCINATED_CONTACT: " << event_counter[VACCINATED_CONTACT] << endl;
-                cout << "\tINFECTIOUS_CONTACT: " << event_counter[INFECTIOUS_CONTACT] << endl;
-                cout << "\tENVIRONMENT_CONTACT: " << event_counter[ENVIRONMENT_CONTACT] << endl;
-                cout << "\tINFECTION_RECOVERY: " << event_counter[INFECTION_RECOVERY] << endl;
-                cout << "\tVACCINE_RECOVERY: " << event_counter[VACCINE_RECOVERY] << endl;
-                cout << "\tCHECK_ENVIRONMENT: " << event_counter[CHECK_ENVIRONMENT] << endl;
-                cout << "\tVACCINATE: " << event_counter[VACCINATE] << endl;
-                cout << "\tDEATH: " << event_counter[DEATH] << endl;
                 counter+=.1;
                 ii++;
             }
             double timeStep = Now - previousTime[0];
-            if(timeStep!=0){
+            double day = 0;
+            /*if(timeStep!=0){
                 exponential_distribution<double> exp_virusDeath(inactivationRate*timeStep*365);
-                minusEnvironment += exp_virusDeath(rng);; //keeps track of decay rate until it is needed (i.e. used for an event) then is reset
+                minusEnvironment += exp_virusDeath(rng); //keeps track of decay rate until it is needed (i.e. used for an event) then is reset
+            }*/
+            if(Now-day>=1){
+                //first update Environment with additions
+                double r3 = unif_real(rng);
+                for(Person* p: people){
+                    if(p->getInfectionStatus()!= " " and r3 < p->probShedding(Now)){
+                        Environment+=p->gramsDailyFeces(Now)*p->stoolViralLoad(Now);//1/1000th of virus particles end up in well
+                    }
+                }
+                exponential_distribution<double> exp_virusDeath(inactivationRate*Now*365);
+                minusEnvironment += exp_virusDeath(rng);
+                //next update virus concentration in water source to exclude inactivated virus
+                virusCon = ((1/(double)100000)*Environment/wellVolume)*minusEnvironment;
+                day=Now;
             }
-            for(Person* p: people) {
+            
+            //for(Person* p: people) {
                /* if(p->getAge()<5){//only care about age up to 5 for vacc
                     p->updateAge(timeStep);
                 }*/
                 // does this person contact the environment?
-                exponential_distribution<double> exp_betaEnvironment(BETAENV);//**temporary contact rate
+               /* exponential_distribution<double> exp_betaEnvironment(BETAENV);//**temporary contact rate
                 double rand2 = unif_real(rng);
                 double TceStep = exp_betaEnvironment(rng);
                 double Tce = TceStep+Now;
                 if(rand2 < TceStep){
-                    EventQ.push(Event(Tce,ENVIRONMENT_CONTACT,p));
-                    event_counter[ENVIRONMENT_CONTACT]++;
-                }
-            }
+                    EventQ.push(Event(Tce,"env_c",p));
+                }*/
+           // }
+            
+            
             Person* individual = event.person;
-            if(event.type==INFECTIOUS_CONTACT){//includes contact with infected and infected by environment
+            if(event.type=="inf_c"){//includes contact with infected and infected by environment
                 //cout<<"in contact\n";
                 int contact_idx = unif_int(rng);
                 contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
@@ -504,7 +505,7 @@ class EventDriven_MassAction_Sim {
                 }
 
             }
-            else if(event.type==VACCINATED_CONTACT){//contact with vaccinated individual
+            else if(event.type=="vacc_c"){//contact with vaccinated individual
                 int contact_idx = unif_int(rng);
                 contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
                 Person* contact = people[contact_idx];
@@ -518,18 +519,18 @@ class EventDriven_MassAction_Sim {
                     infect(contact);
                 }
             }
-            else if (event.type == INFECTION_RECOVERY) {//recovery from vacc and WPV may be different
+            else if (event.type == "inf_r") {//recovery from vacc and WPV may be different
                 TTE=Now;
                 numInfected--;
                 if(individual->getIndex()==0){
                     return 0;
                 }
             }
-            else if(event.type== VACCINE_RECOVERY){
+            else if(event.type=="vacc_r"){
                 TTE=Now;
                 numInfected--;
             }
-            else if(event.type==DEATH){
+            else if(event.type=="death"){
                 //cout<<"death\n";
                 if(individual->getIndex()==0){
                     return 0;
@@ -541,9 +542,9 @@ class EventDriven_MassAction_Sim {
                 individual->reset();//keeps population constant
                 death(individual);//give each new person a death
             }
-            else if(event.type==ENVIRONMENT_CONTACT){
+            else if(event.type=="env_c"){
                 //first update Environment with additions
-                double r3 = unif_real(rng);
+               /* double r3 = unif_real(rng);
                 for(Person* p: people){
                     if(p->getInfectionStatus()!= " " and r3 < p->probShedding(Now)){
                         Environment+=p->gramsDailyFeces(Now)*p->stoolViralLoad(Now);//1/1000th of virus particles end up in well
@@ -551,14 +552,16 @@ class EventDriven_MassAction_Sim {
                 }
                 //next update virus concentration in water source to exclude inactivated virus
                 virusCon = ((1/(double)100000)*Environment/wellVolume)*minusEnvironment;
-                minusEnvironment=0;
+                minusEnvironment=0;*/
                 double rand2 = unif_real(rng);
                 if(rand2 < individual->probInfGivenDose("I_E")){
                     envDose = .5*virusCon;//.5 is num Liters of water drank in a single sitting
                     infectByEnvironment(individual);
                 }
+                //update next time to contact environment--environmental contacts occur daily
+                EventQ.push(Event(Now+(1/(double)365),"env_c",individual));
             }
-            else if(event.type==VACCINATE){
+            else if(event.type=="vacc"){
                 vector<int> age5indx;
                 for(Person* p: people) {
                     if(p->getAge()<5){
@@ -569,7 +572,7 @@ class EventDriven_MassAction_Sim {
                 for(auto i=age5indx.rbegin();i!=age5indx.rend();++i,--currentIndexCounter){
                     uniform_int_distribution<> dis(0,currentIndexCounter-1);
                     const int randomIndex = dis(rng);
-
+                    
                     if(*i !=age5indx.at(randomIndex)){
                         swap(age5indx.at(randomIndex),*i);
                     }
@@ -580,10 +583,9 @@ class EventDriven_MassAction_Sim {
                 //set next time of vaccination
                 exponential_distribution<double> exp_vacc(vaccRate);
                 double Tv = exp_vacc(rng) + Now;
-                EventQ.push(Event(Tv,VACCINATE,nullptr));
-                event_counter[VACCINATE]++;
+                EventQ.push(Event(Tv,"vacc",nullptr));
               }
-            else if(event.type==CHECK_ENVIRONMENT){
+            else if(event.type=="check_env"){
                 //first update Environment with additions
                 double r3 = unif_real(rng);
                 for(Person* p: people){
@@ -599,10 +601,9 @@ class EventDriven_MassAction_Sim {
             }
             previousTime[0]=event.time;
             EventQ.pop();
-            event_counter[event.type]--;
-
+            
             return 1;
         }
-
+    
 };
 #endif
