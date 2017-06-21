@@ -16,7 +16,8 @@
 
 const double PIR = 0.001; //type 3 paralysis incidence rate
 const double maxTiter = 2048.0;
-const double maxAge=100.0;
+const double minTiter = 1.0;
+const double maxAge=85.0;
 const double meanAge=18;//Nigeria mean age
 double TTE =0;
 const double vaccRate = .01;
@@ -33,6 +34,7 @@ double minusEnvironment = 0.0;
 const double gramsFeces = 128;//avg grams of feces produced per day
 const double chkEnvRate = 12;//once per month
 const double fiftyPerInf=pow(10,7);//units TCID50/L used saturating incidence function -- concentration of PV at which infection rate is 50% of max
+const double propVirusinWater = 1/(double)100000;
 
 //probability of shedding parameters (these are all means from Famulare paper) - units in days
 const double muOPV = 30.3;
@@ -45,6 +47,7 @@ const double deltaShedding = 1.16;
 const double Smax = 6.7; //units TCID50/gram
 const double Smin = 4.3; //units TCID50/gram
 const double tau = 10; //units months
+const double newBorn = 7/double(12);//age in months
 
 //stool viral load parameters (these are all means from Famulare paper)
 const double k = 0.056; //unitless
@@ -66,5 +69,9 @@ const double waningLambda = .75;//unitless
 //environmental detection parameters (4/3/2017 - these are just guesses)
 const double detectionRate = 1/(double)5; //can detect 1 virus particle in 5 liters of water?
 
+//death rate parameters (indexmundi.com, Pakistan as of 2016)
+const double infantMortalityRate = 53.9/(double)1000; //0-1 year olds
+const double childMortalityRate = 87/(double)1000; // <5 year olds
+const double adultMortalityRate = 6.4/(double)1000; //>5
 
 #endif /* EventDriven_parameters_hpp */
