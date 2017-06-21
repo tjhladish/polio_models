@@ -374,7 +374,7 @@ public:
     int age100(){
         int Age100 = 0;
         for(Person* p: people){
-            if(p->getAge()<=100 and p->getAge()>=65){
+            if(p->getAge()<=maxAge and p->getAge()>=65){
                 Age100++;
             }
         }
@@ -426,7 +426,7 @@ public:
                 }
                 case 4:
                 {
-                    uniform_int_distribution<int> AGE4(65,100);
+                    uniform_int_distribution<int> AGE4(65,maxAge);
                     p->setAge(AGE4(rng));
                     p->setAgeClass(AGE100);
                     age100++;
@@ -447,7 +447,8 @@ public:
         cout<<"65+ "<<age100<<"\n";
         for(int i=0;i<infected;i++){
             infect(people[i]);//infects first k people in vector
-        }    }
+        }
+    }
     
     void printPopultion(){
         for(Person* p:people){
@@ -583,7 +584,7 @@ public:
     }
 
     void death(Person* p){
-        exponential_distribution<double> exp_death(1/ageLifeExpectancy(p->getAge()));//age-specific death rate calculated using age-specific life expectancy
+        exponential_distribution<double> exp_death(DEATH_RATE);//age-specific death rate calculated using age-specific life expectancy
         double Td = exp_death(rng) + Now;
         if((p->getAge()+Td)> maxAge){//if the individual is going to die after the set maxAge
             Td = p->deathTime() + Now;
@@ -616,6 +617,7 @@ public:
         cout<<"number of infecteds "<<sheddingPeople.size()<<"\n";
         Event event = EventQ.top();
         Now = event.time;
+        assert(Now>=0);
         cout<<"event "<<event.type<<"\n";
         if(k%10==0){
             int firstInfCount=0;
