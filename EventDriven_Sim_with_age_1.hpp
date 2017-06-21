@@ -584,7 +584,7 @@ public:
     }
 
     void death(Person* p){
-        exponential_distribution<double> exp_death(DEATH_RATE);//age-specific death rate calculated using age-specific life expectancy
+        exponential_distribution<double> exp_death(1/ageLifeExpectancy(p->getAge()));//age-specific death rate calculated using age-specific life expectancy
         double Td = exp_death(rng) + Now;
         if((p->getAge()+Td)> maxAge){//if the individual is going to die after the set maxAge
             Td = p->deathTime() + Now;
