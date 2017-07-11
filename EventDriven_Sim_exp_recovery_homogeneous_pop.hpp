@@ -23,7 +23,11 @@
 #include <math.h>
 #include <limits>
 #include "EventDriven_parameters.hpp"
-
+extern std:: ofstream &myfile4;
+extern std:: ofstream &myfile5;
+extern std:: ofstream &myfile6;
+extern std:: ofstream &myfile7;
+extern std:: ofstream &myfile8;
 
 
 
@@ -209,22 +213,22 @@ public:
     double counter=0.0;
     int ii;
     vector<int> event_counter;
-    const int Seq=245;
+    const int Seq=2;
     const int I1eq=15;
-    const int Req=6196;
-    const int Peq=3507;
-    const int Ireq=37;
+    const int Req=2825;
+    const int Peq=649;
+    const int Ireq=6509;
     int Ssum;
     int I1sum;
     int Rsum;
     int Psum;
     int Irsum;
     const int N;
-    array<double,10000> I1vec;
-    array<double,10000> Irvec;
-    array<double,10000> Svec;
-    array<double,10000> Rvec;
-    array<double,10000> Pvec;
+    array<double,5000> I1vec;
+    array<double,5000> Irvec;
+    array<double,5000> Svec;
+    array<double,5000> Rvec;
+    array<double,5000> Pvec;
     int k;
     int queueCount;
     unordered_set<Person*> susIndivS;
@@ -298,16 +302,16 @@ public:
         return TTE;
     }
     
-    array<double,10000> printVectorI1(){
+    array<double,5000> printVectorI1(){
         return I1vec;
     }
-    array<double,10000> printVectorS(){
+    array<double,5000> printVectorS(){
         return Svec;
     }
-    array<double,10000> printVectorR(){
+    array<double,5000> printVectorR(){
         return Rvec;
     }
-    array<double,10000> printVectorP(){
+    array<double,5000> printVectorP(){
         return Pvec;
     }
     int NumBirths(){
@@ -348,12 +352,12 @@ public:
         }
         
     }
-    array<double,10000> printVectorIr(){
+    array<double,5000> printVectorIr(){
         return Irvec;
     }
     
     int nextEvent() {
-        if(((infIndivI1.size()+infIndivI1.size())==0) or Now > 5){
+        if(((infIndivI1.size()+infIndivI1.size())==0) or Now > 0.1){
             return 0;
         }
         double birth;
@@ -474,12 +478,12 @@ public:
             q->setInfectionStatus(NA);
             numDeaths++;
         }
-        if(k%10==0){
-            I1vec[queueCount] = infIndivI1.size();
-            Irvec[queueCount] = infIndivIr.size();
-            Svec[queueCount] = susIndivS.size();
-            Pvec[queueCount] = susIndivP.size();
-            Rvec[queueCount] = recIndivR.size();
+        if(k%150==0){
+            I1vec[queueCount] = I1sum;
+            Irvec[queueCount] = Irsum;
+            Svec[queueCount] = Ssum;
+            Pvec[queueCount] = Psum;
+            Rvec[queueCount] = Rsum;
             queueCount++;
         }
         k++;
