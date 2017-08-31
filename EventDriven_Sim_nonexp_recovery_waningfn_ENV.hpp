@@ -201,6 +201,7 @@ public:
         IrEvec[0]=IrEsum;
         timevec[0]=0;
         delta=0;
+        sheddingPeople.clear();
     }
     
     ~EventDriven_MassAction_Sim() {
