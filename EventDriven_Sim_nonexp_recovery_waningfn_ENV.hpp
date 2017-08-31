@@ -738,6 +738,7 @@ public:
                     break;
                 }
             }
+            sheddingPeople.erase(individual);//removes if they were infected at death
             individual->reset();
             
             //set time to death
