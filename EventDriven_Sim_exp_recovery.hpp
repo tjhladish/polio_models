@@ -157,6 +157,7 @@ public:
         Svec = {0};
         Rvec = {0};
         Pvec = {0};
+        timevec={0};
         Ssum=Seq;
         I1sum=I1eq;
         Rsum=Req;
@@ -168,9 +169,15 @@ public:
         numDeaths=0;
         numI1inf=0;
         numIrinf=0;
-        numRec=0;
+        numRecI1=0;
+        numRecIr=0;
         numWane=0;
         avgInfI1rate=0;
+        delta = 0;
+        I1vec[0] = I1eq;
+        Irvec[0] = Ireq;
+        Svec[0] = Seq;
+        Rvec[0] = Req + Peq;
 
     }
     
@@ -210,22 +217,23 @@ public:
     double counter=0.0;
     int ii;
     vector<int> event_counter;
-    const int Seq=579;
-    const int I1eq=14;
-    const int Req=4111;
-    const int Peq=5273;
-    const int Ireq=23;
+    const int Seq=2;
+    const int I1eq=15;
+    const int Req=2731;
+    const int Peq=962;
+    const int Ireq=6290;
     int Ssum;
     int I1sum;
     int Rsum;
     int Psum;
     int Irsum;
     const int N;
-    array<double,10000> I1vec;
-    array<double,10000> Irvec;
-    array<double,10000> Svec;
-    array<double,10000> Rvec;
-    array<double,10000> Pvec;
+    vector<double> I1vec;
+    vector<double> Irvec;
+    vector<double> Svec;
+    vector<double> Rvec;
+    vector<double> Pvec;
+    vector<double> timevec;
     int k;
     int queueCount;
     unordered_set<Person*> susIndivS;
@@ -237,20 +245,17 @@ public:
     int numDeaths;
     int numI1inf;
     int numIrinf;
-    int numRec;
+    int numRecI1;
+    int numRecIr;
     int numWane;
     double avgInfI1rate;
+    double delta;
 
 
     
     
     
     void runSimulation(){
-        I1vec[0] = I1eq;
-        Irvec[0] = Ireq;
-        Svec[0] = Seq;
-        Rvec[0] = Req;
-        Pvec[0] = Peq;
         while(nextEvent()>=0){
             if(nextEvent()==0){
                 TTE=Now;
@@ -305,17 +310,23 @@ public:
         return TTE;
     }
     
-    array<double,10000> printVectorI1(){
+    vector<double> printVectorI1(){
         return I1vec;
     }
-    array<double,10000> printVectorS(){
+    vector<double> printVectorS(){
         return Svec;
     }
-    array<double,10000> printVectorR(){
+    vector<double> printVectorR(){
         return Rvec;
     }
-    array<double,10000> printVectorP(){
+    vector<double> printVectorP(){
         return Pvec;
+    }
+    vector<double> printVectorIr(){
+        return Irvec;
+    }
+    vector<double> printTimeVector(){
+        return timevec;
     }
     int NumBirths(){
         return numBirths;
@@ -329,41 +340,37 @@ public:
     int NumIRInf(){
         return numIrinf;
     }
-    int NumRec(){
-        return numRec;
+    int NumRecI1(){
+        return numRecI1;
+    }
+    int NumRecIr(){
+        return numRecIr;
     }
     int NumWane(){
         return numWane;
     }
-    
-    
-    void printVector(int ii){
-        if(ii==0){
-        std::ofstream myfile7;
-        myfile7.open ("/Users/Celeste/Desktop/C++IBM/N=3500,beta=135,fast_I1vec_valid_time=6_test_insideh_first.csv");
-        for(int i=0;i<I1vec.size();++i){
-            myfile7<<I1vec[i]<<"\n";
-        }
-        myfile7.close();
-        }
-        else{
-            std::ofstream myfile7;
-            myfile7.open ("/Users/Celeste/Desktop/C++IBM/N=3500,beta=135,fast_I1vec_valid_time=6_test_insideh_second.csv");
-            for(int i=0;i<I1vec.size();++i){
-                myfile7<<I1vec[i]<<"\n";
-            }
-            myfile7.close();
-        }
-        
+    int numS(){
+        return Ssum;
     }
-    array<double,10000> printVectorIr(){
-        return Irvec;
+    int numI1(){
+        return I1sum;
     }
+    int numR(){
+        return Rsum;
+    }
+    int numP(){
+        return Psum;
+    }
+    int numIr(){
+        return Irsum;
+    }
+
     
     
     
     void infectI1(Person* p) {
         int numI1contacts=0;
+        numI1inf++;
         p->setInfectionStatus(I1);
         // time to next human-human contact
         exponential_distribution<double> exp_beta(BETA); //BETA is contact rate/individual/year
@@ -377,19 +384,20 @@ public:
             Tc += exp_beta(rng);
             numI1contacts++;
         }
-        cout<<"num I1 contacts "<<numI1contacts<<"\n";
+        //cout<<"num I1 contacts "<<numI1contacts<<"\n";
         EventQ.emplace(Tr,INFECTION_RECOVERY_I1,p);
         event_counter[INFECTION_RECOVERY_I1]++;
         return;
     }
     void infectIr(Person* p) {
         int numIrcontacts=0;
+        numIrinf++;
         p->setInfectionStatus(IR);//IR means reinfected
         // time to next human-human contact
         exponential_distribution<double> exp_beta(BETA); //BETA is contact rate/individual/year
         double Tc = exp_beta(rng) + Now;
         //time to recovery
-        exponential_distribution<double> exp_gamma(GAMMA/KAPPA); //IR individuals recovery sooner than I1
+        exponential_distribution<double> exp_gamma((GAMMA/KAPPA)); //IR individuals recover sooner than I1
         double Tr = exp_gamma(rng) + Now;
         while (Tc<Tr) {     // does contact occur before recovery?
             EventQ.emplace(Tc,INFECTIOUS_CONTACT_IR,p);
@@ -397,7 +405,7 @@ public:
             Tc += exp_beta(rng);
             numIrcontacts++;
         }
-        cout<<"num Ir contacts "<<numIrcontacts<<"\n";
+        //cout<<"num Ir contacts "<<numIrcontacts<<"\n";
         EventQ.emplace(Tr,INFECTION_RECOVERY_IR,p);
         event_counter[INFECTION_RECOVERY_IR]++;
         return;
@@ -411,10 +419,12 @@ public:
         return;
     }
     void birth(Person* p){
-        exponential_distribution<double> exp_birth(BIRTH_RATE);
-        double Tb = exp_birth(rng) + Now;
-        EventQ.emplace(Tb,BIRTH,p);
-        event_counter[BIRTH]++;
+        //if((Ssum+I1sum+Rsum+Psum+Irsum)<N){
+            exponential_distribution<double> exp_birth(BIRTH_RATE*(Ssum+I1sum+Rsum+Psum+Irsum));
+            double Tb = exp_birth(rng) + Now;
+            EventQ.emplace(Tb,BIRTH,p);
+            event_counter[BIRTH]++;
+        //}
         return;
         
     }
@@ -427,26 +437,28 @@ public:
     
     
     int nextEvent() {
-        if(((I1sum+Irsum)==0) or Now > 5){
+        if(Now > 1){
             return 0;
         }
-        if((I1sum+Irsum+Ssum+Psum+Rsum)>10000){
-            cout<<"Sum sum " << I1sum+Irsum+Ssum+Psum+Rsum<<"\n";
-            cout<<"vector sum "<< susIndivP.size()+susIndivS.size()+recIndivR.size()+infIndivIr.size()+infIndivI1.size()<<"\n";
-        }
         Event event = EventQ.top();
+        EventQ.pop();
         Now = event.time;
         //cout<<"event "<<event.type<<"\n";
-        if(k%30==0){
-            I1vec[queueCount] = I1sum;
-            Irvec[queueCount] = Irsum;
-            Svec[queueCount] = Ssum;
-            Pvec[queueCount] = Psum;
-            Rvec[queueCount] = Rsum;
-            queueCount++;
+        if(Now-delta>.01){
+            /*I1vec[queueCount] = I1sum;
+             Irvec[queueCount] = Irsum;
+             Svec[queueCount] = Ssum;
+             Rvec[queueCount] = Rsum;
+             timevec[queueCount]=Now;
+             ++queueCount;*/
+            I1vec.push_back(I1sum);
+            Irvec.push_back(Irsum);
+            Svec.push_back(Ssum);
+            Rvec.push_back(Rsum);
+            timevec.push_back(Now);
+            delta=Now;
         }
-        k++;
-         if(Now>counter){
+         /*if(Now>counter){
              cout<<"Loop "<< ii<<"\n";
              cout<<"Now "<<Now<<"\n";
              cout<<" queue size "<<EventQ.size()<<"\n";
@@ -459,55 +471,52 @@ public:
              cout << "\tWANE: " << event_counter[WANE] << endl;
              counter+=.1;
              ii++;
-         }
+         }*/
         Person* individual = event.person;
         if(event.type==INFECTIOUS_CONTACT_I1){
             if((susIndivS.size()+susIndivP.size())!=0 and individual->getInfectionStatus()==I1){
-            //double r1 = unif_real(rng);
-                //if(r1<1){// used 0.5 since the effective contact rate is 135 contacts/individual/year
                 int contact_idx = unif_int(rng);
                 contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
                 Person* contact = people[contact_idx];
                 double r2 = unif_real(rng);
-                //double r3 = unif_real(rng);
-                //if(r2<(.5*BETA*(susIndivS.size()/(double)N))){
                 if(contact->getInfectionStatus()==S){
+                    cout<<"contact has S infection status\n";
+                    cout<<"num s "<<Ssum<<"\n";
+                    cout<<"num I1 "<<I1sum<<"\n";
+                    cout<<"num P "<<Psum<<"\n";
                     if(r2<(.5)){
+                        cout<<"contact infection status: "<<contact->getInfectionStatus()<<"\n";
+                        assert(contact->getInfectionStatus()==S);
                         Ssum--;
                         I1sum++;
                         Person* q = *susIndivS.begin();
                         infectI1(q);
                         susIndivS.erase(q);
                         infIndivI1.insert(q);
-                        numI1inf++;
                     }
                 }
                 else if(contact->getInfectionStatus()==P){
-                        if(r2<(.5*KAPPA)){
+                    if(r2<(.5*KAPPA)){
+                        cout<<"contact infection status: "<<contact->getInfectionStatus()<<"\n";
+                        assert(contact->getInfectionStatus()==P);
                         Psum--;
                         Irsum++;
                         Person* q = *susIndivP.begin();
                         infectIr(q);
                         susIndivP.erase(q);
                         infIndivIr.insert(q);
-                        numIrinf++;
-                        }
                     }
-                    
-                //}
+                }
+                
             }
         }
         if(event.type==INFECTIOUS_CONTACT_IR){
             if((susIndivS.size()+susIndivP.size())!=0 and individual->getInfectionStatus()==IR){
-            //double r1 = unif_real(rng);
-                //if(r1<(1)){//IR individuals have reduced effective contact rate as compared to I1
                 int contact_idx = unif_int(rng);
                 contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
                 Person* contact = people[contact_idx];
                 double r2= unif_real(rng);
-                //double r3 = unif_real(rng);
                 if(contact->getInfectionStatus()==S){
-                //if(r2<(.5*BETA*(KAPPA*susIndivS.size()/(double)N))){
                     if(r2<(.5*KAPPA)){
                         Ssum--;
                         I1sum++;
@@ -515,7 +524,6 @@ public:
                         infectI1(q);
                         susIndivS.erase(q);
                         infIndivI1.insert(q);
-                        numI1inf++;
                     }
                 }
                 else if(contact->getInfectionStatus()==P){
@@ -526,11 +534,9 @@ public:
                         infectIr(q);
                         susIndivP.erase(q);
                         infIndivIr.insert(q);
-                        numIrinf++;
-                    }
                     }
                 }
-            //}
+            }
         }
         else if (event.type==INFECTION_RECOVERY_IR) {
             if(individual->getInfectionStatus()==IR){
@@ -540,7 +546,7 @@ public:
                 wane(individual);
                 infIndivIr.erase(individual);
                 recIndivR.insert(individual);
-                numRec++;
+                numRecIr++;
             }
         }
         else if (event.type == INFECTION_RECOVERY_I1) {
@@ -551,7 +557,7 @@ public:
                 wane(individual);
                 infIndivI1.erase(individual);
                 recIndivR.insert(individual);
-                numRec++;
+                numRecI1++;
             }
         }
         else if(event.type==WANE){
@@ -566,55 +572,66 @@ public:
         }
         else if(event.type==DEATH){
             numDeaths++;
+            numBirths++;
             switch (individual->getInfectionStatus()) {
                 case S:
                 {
-                    Ssum--;
-                    susIndivS.erase(individual);
-                    individual->setInfectionStatus(NA);
-                    birth(individual);
-                    //death(individual);
+                    //Ssum--;
+                    //susIndivS.erase(individual);
+                    //individual->setInfectionStatus(NA);
+                    //birth(individual);
+                    death(individual);
                     break;
                 }
                 case I1:
                 {
                     I1sum--;
+                    Ssum++;
                     infIndivI1.erase(individual);
-                    individual->setInfectionStatus(NA);
-                    birth(individual);
-                    //death(individual);
+                    //individual->setInfectionStatus(NA);
+                    //birth(individual);
+                    individual->setInfectionStatus(S);
+                    susIndivS.insert(individual);
+                    death(individual);
                     break;
                 }
                 case R:
                 {
                     Rsum--;
+                    Ssum++;
                     recIndivR.erase(individual);
-                    individual->setInfectionStatus(NA);
-                    birth(individual);
-                    //death(individual);
+                    //individual->setInfectionStatus(NA);
+                    //birth(individual);
+                    individual->setInfectionStatus(S);
+                    susIndivS.insert(individual);
+                    death(individual);
                     break;
                 }
                 case P:
                 {
                     Psum--;
+                    Ssum++;
                     susIndivP.erase(individual);
-                    individual->setInfectionStatus(NA);
-                    birth(individual);
-                    //death(individual);
+                    //individual->setInfectionStatus(NA);
+                    //birth(individual);
+                    individual->setInfectionStatus(S);
+                    susIndivS.insert(individual);
+                    death(individual);
                     break;
                 }
                 case IR:
                 {
                     Irsum--;
+                    Ssum++;
                     infIndivIr.erase(individual);
-                    individual->setInfectionStatus(NA);
-                    birth(individual);
-                    //death(individual);
+                    //individual->setInfectionStatus(NA);
+                    //birth(individual);
+                    individual->setInfectionStatus(S);
+                    susIndivS.insert(individual);
+                    death(individual);
                     break;
                 }
                 case NA:
-                    birth(individual);
-                    //death(individual);
                     break;
             }
             //individual->setInfectionStatus(S);
@@ -624,22 +641,27 @@ public:
             //death(individual);
         }
         else if(event.type==BIRTH){
-            if(Ssum+I1sum+Rsum+Psum+Irsum<N){
-            individual->setInfectionStatus(S);
-            Ssum++;
-            numBirths++;
-            susIndivS.insert(individual);
-            death(individual);
-            //birth(individual);
+            if(individual->getInfectionStatus()==NA){
+                if((Ssum+I1sum+Rsum+Psum+Irsum)<N){
+                    individual->setInfectionStatus(S);
+                    Ssum++;
+                    numBirths++;
+                    susIndivS.insert(individual);
+                    death(individual);
+                }
+                else{
+                    birth(individual);
+                }
             }
 
         }
-        if(I1sum<0 or Irsum<0){
-            //cout<<"last event "<<event.type<<"\n";
+        if(I1sum<0 or Irsum<0 or Ssum<0 or Rsum<0){
             assert(I1sum>=0);
             assert(Irsum>=0);
+            assert(Ssum>=0);
+            assert(Rsum>=0);
         }
-        EventQ.pop();
+
         event_counter[event.type]--;
         
         return 1;

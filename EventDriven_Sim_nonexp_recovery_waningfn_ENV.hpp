@@ -106,7 +106,6 @@ public:
         m_initialTiterLevel = minTiter;
         m_numInfectionsDC = 0;
         m_numInfectionsEnv = 0;
-        m_timeAtInfection = numeric_limits<double>::max();//never infected
     }
     
     
@@ -201,7 +200,6 @@ public:
         IrEvec[0]=IrEsum;
         timevec[0]=0;
         delta=0;
-        sheddingPeople.clear();
     }
     
     ~EventDriven_MassAction_Sim() {
@@ -241,6 +239,7 @@ public:
     int Ssum;
     int I1sum;
     int Rsum;
+    int Psum;
     int Irsum;
     int I1Esum;
     int IrEsum;
@@ -739,7 +738,6 @@ public:
                     break;
                 }
             }
-            sheddingPeople.erase(individual);//removes if they were infected at death
             individual->reset();
             
             //set time to death
