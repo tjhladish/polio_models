@@ -2,9 +2,13 @@
 
 
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc != 2) { cerr << "\t\nUsage: ./polio <pop_size>\n\n"; exit(-1);}
+
+    cout << "Specified pop size: " << argv[1] << endl;
     //using namespace std;
-    string output_dir = "/Users/Celeste/Desktop/C++_Polio_IBM/";
+    //string output_dir = "/Users/Celeste/Desktop/C++_Polio_IBM/";
+    string output_dir = "../polio_data/";
     //string output_dir = "./";
     std::ofstream myfile4;
     std::ofstream myfile5;
@@ -19,8 +23,8 @@ int main() {
     myfile6.open (output_dir + "N=1000_Svec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
     myfile7.open (output_dir + "N=1000_Rvec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
     myfile8.open (output_dir + "N=1000_time_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
-    const int numSims = 1000;
-    const int N        = 1000;
+    const int numSims  = 1;
+    const int N        = atoi(argv[1]);
     const double DEATH = 0.02;
     const double BETA  = 270;
     const double maxRunTime = 0.2; //units in years

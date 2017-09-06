@@ -514,12 +514,12 @@ public:
     }
     
     void environmentalSurveillance(){
-        if(virusCon>detectionRate){
+/*        if(virusCon>detectionRate){
             cout<<"detected pathogen in water\n";
         }
         else{
             cout<<"did not detect pathogen in water\n";
-        }
+        }*/
         
         //after each ES event generate time to next one--monthly
         EventQ.emplace(Now+(1/(double)12),CHECK_ENVIRONMENT,nullptr);
@@ -569,7 +569,7 @@ public:
         }
         //display events in queue
         if(Now>counter){
-             cout<<"Loop "<< ii<<"\n";
+/*             cout<<"Loop "<< ii<<"\n";
              cout<<"Now "<<Now<<"\n";
              cout<<" queue size "<<EventQ.size()<<"\n";
              cout << "\tINFECTIOUS_CONTACT: " << event_counter[INFECTIOUS_CONTACT] << endl;
@@ -577,7 +577,7 @@ public:
              cout<< "\tBEGIN_SHEDDING: " << event_counter[BEGIN_SHEDDING] << endl;
              cout<<"\tENVIRONMENT_CONTACT " << event_counter[ENVIRONMENT_CONTACT]<< endl;
              cout<<"\tCHECK_ENVIRONMENT " << event_counter[CHECK_ENVIRONMENT]<< endl;
-             cout << "\tDEATH: " << event_counter[DEATH] << endl;
+             cout << "\tDEATH: " << event_counter[DEATH] << endl;*/
              counter+=.1;
              ii++;
         }
