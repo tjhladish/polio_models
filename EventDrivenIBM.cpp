@@ -19,12 +19,11 @@ int main() {
     myfile6.open (output_dir + "N=1000_Svec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
     myfile7.open (output_dir + "N=1000_Rvec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
     myfile8.open (output_dir + "N=1000_time_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
-    const int numSims = 1;
+    const int numSims = 1000;
     const int N        = 1000;
     const double DEATH = 0.02;
-    const double BETA  =135*2;//multiply by 2
-    const double maxRunTime = .2;
-    int seed = 1;
+    const double BETA  = 270;
+    const double maxRunTime = 0.2; //units in years
     
     //initial conditions
     const int Seq=1;
@@ -50,7 +49,7 @@ int main() {
     int numire=0;
     
     for(int i=0; i<numSims; i++) {
-        EventDriven_MassAction_Sim sim(N,BETA,DEATH,Seq,I1eq,Req,Ireq,I1env,Irenv,maxRunTime,seed);
+        EventDriven_MassAction_Sim sim(N,BETA,DEATH,Seq,I1eq,Req,Ireq,I1env,Irenv,maxRunTime);
         sim.randomizePopulation();
         sim.runSimulation();
         for(int k=0;k<sim.printVectorI1().size();k++){

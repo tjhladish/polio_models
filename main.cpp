@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <math.h>
 
-
 //create a class for each person in the simulation
 class Person{
 private:
