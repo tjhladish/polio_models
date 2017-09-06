@@ -25,7 +25,7 @@ int main(){
     //waning parameters
     const double kappa = 1.0;
     const int rho = 30;
-    
+
     //other parameters
     const int recovery = 13;//gamma
     const int beta =135;
@@ -33,7 +33,7 @@ int main(){
     const double death = 0.02;
     double PIR =0.005; //type 1 paralysis rate
     const int alpha = 0;
-    
+
     //initial population from equilibrium values
     const int Tot = 10000;
     const int S =2;
@@ -41,9 +41,9 @@ int main(){
     const int R =2825;
     const int P =649;
     const int Ir=6509;
-    
+
     //counts
-   
+
     using namespace std;
     double AVG_numBirths=0;
     double AVG_numDeaths=0;
@@ -51,38 +51,38 @@ int main(){
     double AVG_numIrInf=0;
     double AVG_numRec=0;
     double AVG_numWane=0;
-    
+
     //Number of Simulations to run:
     const int numSims=10000;
-    
-    
+
+
    //array holds count of number of first infected (I1) individuals
     std::array<double,10000> AVG_I1vec = {0};
     AVG_I1vec[0]=I1;
-    
+
     //array holds count of number of reinfected (Ir) individuals
     std::array<double,10000> AVG_Irvec = {0};
     AVG_Irvec[0]=Ir;
-    
+
     //array holds count of number of susceptible (S) individuals
     std::array<double,10000> AVG_Svec = {0};
     AVG_Svec[0]=S;
-    
+
     //array holds count of number of recoverd (R) individuals
     std::array<double,10000> AVG_Rvec = {0};
     AVG_Rvec[0]=R;
-    
+
     //array holds count of number of partially susceptible (P) indiviudals
     std::array<double,10000> AVG_Pvec={0};
     AVG_Pvec[0]=P;
-   
-   
+
+
     //generate a random real number
     std::random_device rd;//this is the seed
     //int rd =0;
     std::mt19937 gen(rd());//this generates the rn with the above seed
     std::uniform_real_distribution<> unifdis(0.0, 1.0);
-   
+
     std::ofstream myfile4;
     std::ofstream myfile5;
     std::ofstream myfile6;
@@ -118,10 +118,11 @@ int main(){
         AVG_Svec[0] = S;
         AVG_Rvec[0] = R;
         AVG_Pvec[0] = P;
+        vector<double> Irvec;
 
         //run the simulation for 1 mill steps
         for(int j=0;j<1000001;++j){
-            
+
             //update the transition rates
             double birthRate;
             if((S1+I11+R1+P1+Ir1<Tot)){
@@ -140,13 +141,13 @@ int main(){
             double deathR=death*R1;
             double deathP=death*P1;
             double deathIr=death*Ir1;
-            
+
             double totalRate = birthRate+infect1+recover1+wane+infectr+recover2+deathS+deathI1+deathR+deathP+deathIr;
-            
+
 
             //generate unifrn
             double ran=unifdis(gen);
-            
+
             //Pick the event that is to occur based on generated number and rate
             if(ran< infect1/totalRate){
                 S1=S1-1;
@@ -197,13 +198,13 @@ int main(){
                 I11=I11-1;
                 numDeaths++;
             }
-            
+
             //once the event is chosen, generate the time at which the event occurs
             std::exponential_distribution<>rng((totalRate));
-            
+
             double t1 = rng(gen);
             time+=t1;
-            
+
             //at every 30 event steps, count number in each compartment and average with previous simulation's compartment count
             if(j%30==0){
 
@@ -213,21 +214,23 @@ int main(){
 //                for(int i=0; i<AVG_Irvec.size(); ++i) {myfile8 << AVG_Irvec[i] << "\n"; }
 //                for(int i=0; i<AVG_Pvec.size();  ++i) {myfile6 << AVG_Pvec[i]  << "\n"; }
 
-                myfile5 << I11 << " "; 
-                myfile4 << Ir1 << " "; 
-                myfile7 << S1  << " "; 
-                myfile8 << R1  << " "; 
-                myfile6 << P1  << " "; 
-
+                myfile4 << I11 << " ";
+                myfile5 << Ir1 << " ";
+                myfile6 << S1  << " ";
+                myfile7 << R1  << " ";
+                myfile8 << P1  << " ";
+                    Irvec.push_back(Ir1);
 //                AVG_I1vec[k] = (AVG_I1vec[k]*i+I11)/(double)(i+1);
-//                AVG_Irvec[k] = (AVG_Irvec[k]*i+Ir1)/(double)(i+1);
+                AVG_Irvec[k] = (AVG_Irvec[k]*i+Ir1)/(double)(i+1);
+                double simple_avg   = accumulate(Irvec.begin(), Irvec.end(), 0.0)/Irvec.size();
+                cerr << "online, offline, error: " << AVG_Irvec[k] << ", " << simple_avg << ", " << AVG_Irvec[k] - simple_avg << endl;
 //                AVG_Svec[k] = (AVG_Svec[k]*i+S1)/(double)(i+1);
 //                AVG_Rvec[k] = (AVG_Rvec[k]*i+R1)/(double)(i+1);
 //                AVG_Pvec[k] = (AVG_Pvec[k]*i+P1)/(double)(i+1);
                 k++;
                 //avgI1infrate= (avgI1infrate*j+infect1)/(double)(j+1);
             }
-            
+
             //stopping condition
             if((I11+Ir1==0) or time>.1){
                 AVG_numBirths = (AVG_numBirths*i+numBirths)/(double)(i+1);
@@ -237,18 +240,18 @@ int main(){
                 AVG_numRec = (AVG_numRec*i+numRec)/(double)(i+1);
                 AVG_numWane= (AVG_numWane*i+numWane)/(double)(i+1);
 
-                myfile5 << "\n"; 
-                myfile4 << "\n"; 
-                myfile7 << "\n"; 
-                myfile8 << "\n"; 
-                myfile6 << "\n"; 
+                myfile4 << "\n";
+                myfile5 << "\n";
+                myfile6 << "\n";
+                myfile7 << "\n";
+                myfile8 << "\n";
                 break;
-                
+
             }
         }
-      
+
     }
-    
+
 //    std::cout<<"num births "<<AVG_numBirths<<"\n";
 //    std::cout<<"num deaths "<<AVG_numDeaths<<"\n";
 //    std::cout<<"num I1 inf "<<AVG_numI1Inf<<"\n";
@@ -261,7 +264,7 @@ int main(){
     myfile6.close();
     myfile7.close();
     myfile8.close();
-    
+
     return 0;
 }
 
