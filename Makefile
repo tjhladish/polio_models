@@ -1,10 +1,10 @@
 FLAGS=-O2 --std=c++11
 output_dir=.
 
-default: current_version edma polio
+default: current_version 
 
-current_version: EventDrivenIBM.cpp EventDriven_Sim_nonexp_recovery_waningfn_ENV.hpp EventDriven_parameters.hpp | $(output_dir)/polio_data
-	g++ $(FLAGS) EventDrivenIBM.cpp -o polio
+current_version: main_EventDrivenIBM.cpp EventDriven_Sim_Teunis_waning.hpp EventDriven_parameters.hpp | $(output_dir)/polio_data
+	g++ $(FLAGS) main_EventDrivenIBM.cpp -o polio
 
 debug: main_Gillespie.cpp
 	g++ $(FLAGS) main_Gillespie.cpp -o debug
