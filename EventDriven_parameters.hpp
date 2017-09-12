@@ -74,4 +74,14 @@ const double infantMortalityRate = 53.9/(double)1000; //0-1 year olds
 const double childMortalityRate = 87/(double)1000; // <5 year olds
 const double adultMortalityRate = 6.4/(double)1000; //>5
 
+//Teunis boosting/waning model
+const double pathogenClearance=5;//needs to be fit
+const double pathogenGrowth=4;//needs to be fit
+const double antibodyGrowth=5;//needs to be fit
+
+//shape parameter for waning fn
+const double r = 2.19; //needs to be fit
+const double antibodyDecay = 1.49; //needs to be fit
+
+
 #endif /* EventDriven_parameters_hpp */
