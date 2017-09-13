@@ -3,7 +3,7 @@
 
 
 int main(int argc, char** argv) {
-    if (argc != 3) { cerr << "\t\nUsage: ./polio <pop_size>\n \t Enter 1 for Famulare waning function and 2 for Teunis waning function\n\n"; exit(-1);}
+    if (argc != 3) { cerr << "\t\nUsage: ./polio <pop_size> <waning_function>\n \t waning_function: Enter 1 for Famulare waning and 2 for Teunis waning\n\n"; exit(-1);}
 
     cout << "Specified pop size: " << argv[1] << endl;
     //using namespace std;
