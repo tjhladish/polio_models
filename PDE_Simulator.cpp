@@ -14,6 +14,8 @@
 //#include <gsl/gsl_math.h>
 //#include "SIR_H.h"
 
+using namespace std;
+
 
 int main(){
     
@@ -46,15 +48,15 @@ int main(){
 
     
 //vectors for linking functions
-    std::vector<double> beta1;
-    std::vector<double> beta2;
-    std::vector<double> gamma1;
-    std::vector<double> gamma2;
-    std::vector<double> rho;
+    vector<double> beta1;
+    vector<double> beta2;
+    vector<double> gamma1;
+    vector<double> gamma2;
+    vector<double> rho;
     
 //vectors for within-host solution
-    std::vector<double> pathogen;
-    std::vector<double> antibody;
+    vector<double> pathogen;
+    vector<double> antibody;
     
     for(double i = 0; i<M;i = i+ dt){
         double b;
@@ -86,11 +88,11 @@ int main(){
         rho.push_back(rhoLink);
     }
 //vectors for between-host solution
-    std::vector<double> S(N);
-    std::vector<double> I1(N*M);
-    std::vector<double> R(N*M);
-    std::vector<double> Ir(N*M);
-    std::vector<double> symptomaticIncidence (N);
+    vector<double> S(N);
+    vector<double> I1(N*M);
+    vector<double> R(N*M);
+    vector<double> Ir(N*M);
+    vector<double> symptomaticIncidence (N);
 //initialize between-host compartments
     S[0] = 100;
     for(int i = 0; i<N;i++){
@@ -133,30 +135,31 @@ int main(){
         
         symptomaticIncidence[k+1] = S[k+1]*intSum3/totalPop;
         }
-    /*std::cout<<"R vec\n";
-    std::cout<<"R vec size "<<R.size()<<"\n";
+    cout<<"R vec\n";
+    cout<<"R vec size "<<R.size()<<"\n";
     for(int i =0; i<R.size();i++){
-        std::cout<<R[i]<<" ";
+        cout<<R[i]<<" ";
     }
-    std::cout<<"I1 vec\n";
-    std::cout<<"I1 vec size "<<I1.size()<<"\n";
+    cout<<"\nI1 vec\n";
+    cout<<"I1 vec size "<<I1.size()<<"\n";
     for(int i =0; i<I1.size();i++){
-        std::cout<<I1[i]<<" ";
+        cout<<I1[i]<<" ";
     }
-    std::cout<<"Ir vec\n";
-    std::cout<<"Ir vec size "<<Ir.size()<<"\n";
+    cout<<"\nIr vec\n";
+    cout<<"Ir vec size "<<Ir.size()<<"\n";
     for(int i =0; i<Ir.size();i++){
-        std::cout<<Ir[i]<<" ";
+        cout<<Ir[i]<<" ";
     }
-    std::cout<<"S vec\n";
-    std::cout<<"S vec size "<<S.size()<<"\n";
+    cout<<"\nS vec\n";
+    cout<<"S vec size "<<S.size()<<"\n";
     for(int i =0; i<S.size();i++){
-        std::cout<<S[i]<<" ";
+        cout<<S[i]<<" ";
     }
-    std::cout<<"symptomatic incidence\n";
-    std::cout<<"symptomatic incdience size "<<symptomaticIncidence.size()<<"\n";
+    cout<<"\nsymptomatic incidence\n";
+    cout<<"symptomatic incdience size "<<symptomaticIncidence.size()<<"\n";
     for(int i =0; i<symptomaticIncidence.size();i++){
-        std::cout<<symptomaticIncidence[i]<<" ";
-    }*/
+        cout<<symptomaticIncidence[i]<<" ";
+    }
+    cout << endl;
     return 0;
 }
