@@ -15,5 +15,8 @@ polio: main.cpp
 edma: EventDriven_MassAction_Sim.h mass_action_SIR.cpp
 	g++ $(FLAGS) mass_action_SIR.cpp -o edma
 
+pde: PDE_Simulator.cpp
+	g++ $(FLAGS) PDE_Simulator.cpp -o pde
+
 $(output_dir)/polio_data:
 	mkdir $@
