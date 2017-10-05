@@ -16,7 +16,6 @@
 
 using namespace std;
 
-
 int main(){
     
 //within-host parameters
@@ -42,8 +41,11 @@ int main(){
     
 //time parameters
     double dt = 0.1; //time step
-    double N = 4; //delta t * N = final time of interest (days)
-    double M = 4; //delta tau * M = final time since infection (days)
+    //N*M must be a perfect square
+    double N = 5; //delta t * N = final time of interest T (days)
+    double M = 5; //delta t * M = final time since infection tau (days)
+    double T = dt*N;
+    double tau = dt*M;
     
 
     
@@ -57,8 +59,7 @@ int main(){
 //vectors for within-host solution
     vector<double> pathogen;
     vector<double> antibody;
-    
-    for(double i = 0; i<M;i = i+ dt){
+    for(double i = 0; i<tau;i = i+ dt){
         double b;
         double y;
         if(i<=t1){
@@ -97,8 +98,8 @@ int main(){
     S[0] = 100;
     for(int i = 0; i<N;i++){
         I1[i] = 1;
-        R[i] = 5;
-        Ir[i] = 10;
+        R[i] = 0;
+        Ir[i] = 0;
     }
     symptomaticIncidence[0] = 1;
 
@@ -106,26 +107,32 @@ int main(){
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
     
-    for(int k=0; k<(N-1); k++){
+    for(int k=0; k<(N-1); k++){//looping through time
         double intSum = 0;
         double intSum1 = 0;
         for(int s=0; s<M; s++){
             intSum += dt*(beta1[s]*I1[sqrt(I1.size())*k+s] + beta2[s]*Ir[sqrt(Ir.size())*k+s]);
             intSum1 += dt*(gamma1[s]*I1[sqrt(I1.size())*k+s]+gamma2[s]*Ir[sqrt(Ir.size())*k+s]);
+            //intSum1,intsum get too large when N,M>20
         }
         
         S[k+1] = (S[k] + dt*delta*totalPop)/(1+dt*intSum*(1/totalPop)+dt*delta);
         
         double intSum2 =0;
-        for(int j=0;j<M;j++){
-            R[(sqrt(R.size())*(k+1))+j] = intSum1;
+        for(int j=0; j<M; j++){
+            if(j==0){
+                R[(sqrt(R.size())*(k+1))+j] = intSum1;//boundary condition
+            }
             R[(sqrt(R.size())*(k+1))+(j+1)] = R[k+j]/(1 + dt*((rho[j+1]/totalPop)*intSum+delta));
             intSum2+= dt*rho[j]*R[(sqrt(R.size())*(k+1))+j];
         }
         double intSum3=0;
         for(int j=0; j<M; j++){
-            I1[(sqrt(I1.size())*(k+1))+j] = intSum*S[k+1]/totalPop;
-            Ir[(sqrt(Ir.size())*(k+1))+j] = (1/totalPop)*intSum2*intSum;
+            if(j==0){
+                //boundary conditions
+                I1[(sqrt(I1.size())*(k+1))+j] = intSum*S[k+1]/totalPop;
+                Ir[(sqrt(Ir.size())*(k+1))+j] = (1/totalPop)*intSum2*intSum;
+            }
             
             I1[(sqrt(I1.size())*(k+1))+(j+1)] = I1[(sqrt(I1.size())*k)+j]/(1+dt*(gamma1[j+1]+delta));
             Ir[(sqrt(Ir.size())*(k+1))+(j+1)] = Ir[(sqrt(Ir.size())*k)+j]/(1+dt*(gamma2[j+1]+delta));
@@ -135,31 +142,31 @@ int main(){
         
         symptomaticIncidence[k+1] = S[k+1]*intSum3/totalPop;
         }
-    cout<<"R vec\n";
+    cout<<"\n R vec\n";
     cout<<"R vec size "<<R.size()<<"\n";
     for(int i =0; i<R.size();i++){
         cout<<R[i]<<" ";
     }
-    cout<<"\nI1 vec\n";
+    cout<<"\n I1 vec\n";
     cout<<"I1 vec size "<<I1.size()<<"\n";
     for(int i =0; i<I1.size();i++){
         cout<<I1[i]<<" ";
     }
-    cout<<"\nIr vec\n";
+    cout<<"\n Ir vec\n";
     cout<<"Ir vec size "<<Ir.size()<<"\n";
     for(int i =0; i<Ir.size();i++){
         cout<<Ir[i]<<" ";
     }
-    cout<<"\nS vec\n";
+    cout<<"\n S vec\n";
     cout<<"S vec size "<<S.size()<<"\n";
     for(int i =0; i<S.size();i++){
         cout<<S[i]<<" ";
     }
-    cout<<"\nsymptomatic incidence\n";
+    cout<<"\n symptomatic incidence\n";
     cout<<"symptomatic incdience size "<<symptomaticIncidence.size()<<"\n";
     for(int i =0; i<symptomaticIncidence.size();i++){
         cout<<symptomaticIncidence[i]<<" ";
     }
-    cout << endl;
+    cout<<"endl";
     return 0;
 }
