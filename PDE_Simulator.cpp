@@ -19,154 +19,159 @@ using namespace std;
 int main(){
     
 //within-host parameters
-    double mu0 = 0.1841; //pathogen growth rate
-    double b0 = 1; //initial pathogen concentration
-    double y0 = 1; //initial antibody concentration
-    double y1 = pow(10,5);//peak antibody concentration
-    double t1 = 28; //duration of infection
-    double mu = (1/t1)*log(y1/y0); //antibody growth rate
-    double c = b0*((mu-mu0)/(y0*(exp((mu-mu0)*t1)-1))); //pathogen clearance rate
-    double r = 1.69; //immunity shape parameter
-    double nu = 1.41; //immunity waning rate
+    const double mu0 = 0.1841; //pathogen growth rate
+    const double b0 = 1; //initial pathogen concentration
+    const double y0 = 1; //initial antibody concentration
+    const double y1 = pow(10,5);//peak antibody concentration
+    const double t1 = 28; //duration of infection
+    const double mu = (1/t1)*log(y1/y0); //antibody growth rate
+    const double c = b0*((mu-mu0)/(y0*(exp((mu-mu0)*t1)-1))); //pathogen clearance rate
+    const double r = 1.69; //immunity shape parameter
+    const double nu = 1.41; //immunity waning rate
     
 //between-host parameters
-    double K1 = 100; //I1 contact rate
-    double K2 = 50; //Ir contact rate
-    double alpha1 = 13; //I1 recovery parameter
-    double alpha2 = 31; //Ir recovery parameter
-    double omega = 0.2; //waning parameter
-    double C = 0.0001; //saturation constant
-    double delta = 0.02; //birth/death rate
-    double totalPop = 101; //total population size
+    const double K1 = 100; //I1 contact rate
+    const double K2 = 50; //Ir contact rate
+    const double alpha1 = 13; //I1 recovery parameter
+    const double alpha2 = 31; //Ir recovery parameter
+    const double omega = 0.2; //waning parameter
+    const double C = 0.0001; //saturation constant
+    const double delta = 0.02; //birth/death rate
+    const double totalPop = 101; //total population size
     
 //time parameters
-    double dt = 0.1; //time step
+    const double dt = 0.1; //time step
     //N*M must be a perfect square
-    double N = 5; //delta t * N = final time of interest T (days)
-    double M = 5; //delta t * M = final time since infection tau (days)
-    double T = dt*N;
-    double tau = dt*M;
-    
-
+    const int N = 9; //delta t * N = final time of interest T (days)
+    const int M = 9; //delta t * M = final time since infection tau (days)
+    //const double T = dt*N;
+    const double tau = dt*M;
     
 //vectors for linking functions
-    vector<double> beta1;
-    vector<double> beta2;
-    vector<double> gamma1;
-    vector<double> gamma2;
-    vector<double> rho;
+    vector<double> beta1(M+1,0.0);
+    vector<double> beta2(M+1,0.0);
+    vector<double> gamma1(M+1,0.0);
+    vector<double> gamma2(M+1,0.0);
+    vector<double> rho(M+1,0.0);
     
 //vectors for within-host solution
-    vector<double> pathogen;
-    vector<double> antibody;
-    for(double i = 0; i<tau;i = i+ dt){
+    vector<double> pathogen(M);
+    vector<double> antibody(M);
+cout << "a\n";
+    //for(double t = 0; t<tau; t += dt){
+    for (unsigned int i = 0; i < M; ++i) {
+        const double t = dt*i;
         double b;
         double y;
-        if(i<=t1){
-            b = b0*exp(mu0*i) - (c*y0*(exp(mu*i)-exp(mu0*i))/(mu-mu0));
-            y = y0*exp(mu*i);
+        if(t<=t1){
+            b = b0*exp(mu0*t) - (c*y0*(exp(mu*t)-exp(mu0*t))/(mu-mu0));
+            y = y0*exp(mu*t);
         }
         else{
             b = 0;
-            y = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(i-t1)),-(1/(r-1)));
+            y = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(t-t1)),-(1/(r-1)));
         }
-        pathogen.push_back(b);
-        antibody.push_back(y);
+        pathogen[i] = b;
+        antibody[i] = y;
     }
-
+cout << "b\n";
 //Construct linking functions
-    for(int j =0; j<pathogen.size();j++){
-        double beta1Link = (K1*pathogen[j])/(pathogen[j]+C);
-        double beta2Link = (K2*pathogen[j])/(pathogen[j]+C);
-        double gamma1Link = (alpha1*antibody[j])/(pathogen[j]+C);
-        double gamma2Link = (alpha2*antibody[j])/(pathogen[j]+C);
-        double rhoLink = omega/(antibody[j]+C);
+    for(unsigned int j =0; j<pathogen.size(); ++j){
+        const double beta1Link = (K1*pathogen[j])/(pathogen[j]+C);
+        const double beta2Link = (K2*pathogen[j])/(pathogen[j]+C);
+        const double gamma1Link = (alpha1*antibody[j])/(pathogen[j]+C);
+        const double gamma2Link = (alpha2*antibody[j])/(pathogen[j]+C);
+        const double rhoLink = omega/(antibody[j]+C);
         
-        beta1.push_back(beta1Link);
-        beta2.push_back(beta2Link);
-        gamma1.push_back(gamma1Link);
-        gamma2.push_back(gamma2Link);
-        rho.push_back(rhoLink);
+        beta1[j]  = beta1Link;
+        beta2[j]  = beta2Link;
+        gamma1[j] = gamma1Link;
+        gamma2[j] = gamma2Link;
+        rho[j]    = rhoLink;
     }
 //vectors for between-host solution
-    vector<double> S(N);
-    vector<double> I1(N*M);
-    vector<double> R(N*M);
-    vector<double> Ir(N*M);
-    vector<double> symptomaticIncidence (N);
-//initialize between-host compartments
+    vector<double> S(N,0.0);
     S[0] = 100;
-    for(int i = 0; i<N;i++){
-        I1[i] = 1;
-        R[i] = 0;
-        Ir[i] = 0;
-    }
+    vector<double> I1(N*M,0.0);
+    vector<double> R(N*M,0.0);
+    vector<double> Ir(N*M,0.0);
+    vector<double> symptomaticIncidence (N,0.0);
     symptomaticIncidence[0] = 1;
+//initialize between-host compartments
+cout << "c\n";
+    for(int i = 0; i<M;i++){
+        I1[i] = 1;
+        //R[i] = 0;
+        //Ir[i] = 0;
+    }
 
 //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
     
-    for(int k=0; k<(N-1); k++){//looping through time
+cout << "d\n";
+    for(unsigned int k=0; k<(N-1); k++){//looping through time
         double intSum = 0;
         double intSum1 = 0;
-        for(int s=0; s<M; s++){
-            intSum += dt*(beta1[s]*I1[sqrt(I1.size())*k+s] + beta2[s]*Ir[sqrt(Ir.size())*k+s]);
-            intSum1 += dt*(gamma1[s]*I1[sqrt(I1.size())*k+s]+gamma2[s]*Ir[sqrt(Ir.size())*k+s]);
+        for(unsigned int j=0; j<M; j++){
+            const unsigned int index = M*k+j;
+            intSum  += dt*(beta1[j]*I1[index] + beta2[j]*Ir[index]);
+            intSum1 += dt*(gamma1[j]*I1[index]+gamma2[j]*Ir[index]);
             //intSum1,intsum get too large when N,M>20
         }
         
-        S[k+1] = (S[k] + dt*delta*totalPop)/(1+dt*intSum*(1/totalPop)+dt*delta);
+        S[k+1] = (S[k] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);
         
         double intSum2 =0;
-        for(int j=0; j<M; j++){
+        for(unsigned int j=0; j<M; j++){
             if(j==0){
-                R[(sqrt(R.size())*(k+1))+j] = intSum1;//boundary condition
+                R[(M*(k+1))+j] = intSum1;//boundary condition
             }
-            R[(sqrt(R.size())*(k+1))+(j+1)] = R[k+j]/(1 + dt*((rho[j+1]/totalPop)*intSum+delta));
-            intSum2+= dt*rho[j]*R[(sqrt(R.size())*(k+1))+j];
+            R[(M*(k+1))+(j+1)] = R[(M*k)+j]/(1 + dt*((rho[j+1]/totalPop)*intSum+delta));
+            intSum2+= dt*rho[j]*R[(M*(k+1))+j];
         }
         double intSum3=0;
-        for(int j=0; j<M; j++){
+        for(unsigned int j=0; j<M; j++){
             if(j==0){
                 //boundary conditions
-                I1[(sqrt(I1.size())*(k+1))+j] = intSum*S[k+1]/totalPop;
-                Ir[(sqrt(Ir.size())*(k+1))+j] = (1/totalPop)*intSum2*intSum;
+                I1[(M*(k+1))+j] = intSum*S[k+1]/totalPop;
+                Ir[(M*(k+1))+j] = (1.0/totalPop)*intSum2*intSum;
             }
             
-            I1[(sqrt(I1.size())*(k+1))+(j+1)] = I1[(sqrt(I1.size())*k)+j]/(1+dt*(gamma1[j+1]+delta));
-            Ir[(sqrt(Ir.size())*(k+1))+(j+1)] = Ir[(sqrt(Ir.size())*k)+j]/(1+dt*(gamma2[j+1]+delta));
-            intSum3 += dt*(beta1[j]*I1[(sqrt(I1.size())*k)+j]+beta2[j]*Ir[(sqrt(Ir.size())*k)+j]);
+            I1[(M*(k+1))+(j+1)] = I1[(M*k)+j]/(1+dt*(gamma1[j+1]+delta));
+            Ir[(M*(k+1))+(j+1)] = Ir[(M*k)+j]/(1+dt*(gamma2[j+1]+delta));
+            intSum3 += dt*(beta1[j]*I1[(M*k)+j]+beta2[j]*Ir[(M*k)+j]);
             
         }
         
         symptomaticIncidence[k+1] = S[k+1]*intSum3/totalPop;
-        }
-    cout<<"\n R vec\n";
+    }
+cout << "e\n";
+    /*cout<<"\n R vec\n";
     cout<<"R vec size "<<R.size()<<"\n";
-    for(int i =0; i<R.size();i++){
+    for(unsigned int i =0; i<R.size();i++){
         cout<<R[i]<<" ";
     }
     cout<<"\n I1 vec\n";
     cout<<"I1 vec size "<<I1.size()<<"\n";
-    for(int i =0; i<I1.size();i++){
+    for(unsigned int i =0; i<I1.size();i++){
         cout<<I1[i]<<" ";
     }
     cout<<"\n Ir vec\n";
     cout<<"Ir vec size "<<Ir.size()<<"\n";
-    for(int i =0; i<Ir.size();i++){
+    for(unsigned int i =0; i<Ir.size();i++){
         cout<<Ir[i]<<" ";
     }
     cout<<"\n S vec\n";
     cout<<"S vec size "<<S.size()<<"\n";
-    for(int i =0; i<S.size();i++){
+    for(unsigned int i =0; i<S.size();i++){
         cout<<S[i]<<" ";
     }
     cout<<"\n symptomatic incidence\n";
-    cout<<"symptomatic incdience size "<<symptomaticIncidence.size()<<"\n";
-    for(int i =0; i<symptomaticIncidence.size();i++){
+    cout<<"symptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
+    for(unsigned int i =0; i<symptomaticIncidence.size();i++){
         cout<<symptomaticIncidence[i]<<" ";
     }
-    cout<<"endl";
+    cout<<"endl";*/
     return 0;
 }
