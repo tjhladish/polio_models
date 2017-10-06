@@ -1,7 +1,14 @@
-FLAGS=-O2 --std=c++11
+FLAGS = -g -std=c++11 -Wall -Wextra -Wno-deprecated-declarations --pedantic
 output_dir=.
 
-default: current_version 
+ABCDIR = $(HOME)/work/AbcSmc
+GSL_PATH = $(HOME)/work/AbcSmc/gsl_local
+SQLDIR = $(ABCDIR)/sqdb
+ABC_LIB = -L$(ABCDIR) -labc -ljsoncpp -lsqdb $(ABCDIR)/sqlite3.o
+GSL_LIB = -lm -L$(GSL_PATH)/lib/ -lgsl -lgslcblas -lpthread -ldl
+
+INCLUDE = -I$(ABCDIR) -I$(GSL_PATH)/include/
+#default: current_version 
 
 current_version: main_EventDrivenIBM.cpp EventDriven_Sim_Teunis_waning.hpp EventDriven_parameters.hpp | $(output_dir)/polio_data
 	g++ $(FLAGS) main_EventDrivenIBM.cpp -o polio
@@ -17,6 +24,12 @@ edma: EventDriven_MassAction_Sim.h mass_action_SIR.cpp
 
 pde: PDE_Simulator.cpp
 	g++ $(FLAGS) PDE_Simulator.cpp -o pde
+
+pde_abc: libabc PDE_Simulator_abc.cpp
+	g++ $(FLAGS) $(INCLUDE) -I$(SQLDIR) PDE_Simulator_abc.cpp -o pde_abc $(ABC_LIB) $(GSL_LIB)
+
+libabc:
+	$(MAKE) -C $(ABCDIR) -f Makefile
 
 $(output_dir)/polio_data:
 	mkdir $@
