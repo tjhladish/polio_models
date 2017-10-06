@@ -29,12 +29,18 @@
 
 using namespace std;
 
-enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, NUM_OF_EVENT_TYPES};
+enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, AGING, NUM_OF_EVENT_TYPES};
 
-enum InfectionStatus{S, I1DC, R, IRDC, I1E, IRE};
-//I1,IR prefixes refer to first infected or reinfected (regardless of method of infection)
-//suffix of DC (direct contact) or E (environment) indicates cause of last infection
+enum InfectionStatus{IDC, IE, NA};
+//infection status means the most recent cause of infection
+//NA means never infected
+//DC suffix -> infection by direct contact
+//E suffix -> infection by contacting environment
 
+enum AgeClass{AGE5,AGE15,AGE100}; //discretize age class
+//Age5 = 0-5
+//Age15 = 5-15
+//Age100 = 15+
 
 class Person{
     friend class Event;
@@ -47,6 +53,8 @@ private:
     int m_numInfectionsEnv;
     InfectionStatus m_infectionStatus;
     double m_timeToShed;
+    int m_age;
+    AgeClass m_ageClass;
     const int m_index;
     
 public:
@@ -111,10 +119,9 @@ public:
     
     void waning(double t){
         const double tnew = convertToMonths(abs(t-m_timeAtInfection)); //time needs to be in months post infection
-
-        if(tnew>=1){//only wanes after one month post infection
-            m_titerLevel= max(minTiter, m_initialTiterLevel*pow((tnew),-waningLambda));
-        }
+                if(tnew>=1){//only wanes after one month post infection
+                    m_titerLevel= max(minTiter, m_initialTiterLevel*pow((tnew),-waningLambda));
+                }
         return;
     }
     double probInfGivenDose(InfectionStatus infstat){//dose will vary based on cause of infection, used mean of all shape parameters
@@ -170,7 +177,7 @@ public:
 class EventDriven_MassAction_Sim {
 public:
     // constructor
-    EventDriven_MassAction_Sim(const int n, const double beta, const double death, const int seq, const int i1eq, const int req, const int ireq, const int i1env, const int irenv, const double maxRunTime, int seed = (random_device())()): rng(seed), N(n), BETA(beta), DEATH_RATE(death),Ssum(seq), I1sum(i1eq), Rsum(req), Irsum(ireq), I1Esum(i1env), IrEsum(irenv), maxRunTime(maxRunTime), unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
+    EventDriven_MassAction_Sim(const int n, const double beta, const double death, const int seq, const int i1eq, const int req, const int ireq, const int i1env, const int irenv, const double maxRunTime, const int wanIm, int seed = (random_device())()): rng(seed), N(n), BETA(beta), DEATH_RATE(death),Ssum(seq), I1sum(i1eq), Rsum(req), Irsum(ireq), I1Esum(i1env), IrEsum(irenv), maxRunTime(maxRunTime), waningImmunityScenario(wanIm),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
         people = vector<Person*>(n);
         for (Person* &p: people) p = new Person(people_counter++);
         Now=0.0;
@@ -211,6 +218,7 @@ public:
     const double DEATH_RATE;
     double virusCon;
     double environment;
+    const int waningImmunityScenario;
     
     exponential_distribution<double> exp_beta;
     exponential_distribution<double> exp_death;
@@ -439,7 +447,7 @@ public:
     int numIrE(){
         return IrEsum;
     }
-    
+
     void infectByDirectContact(Person* p) {
         p->setNumInfectionsDC(p->getNumInfectionsDC()+1);
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv()) == 1){
@@ -537,217 +545,440 @@ public:
     
     
     int nextEvent() {
-        Event event = EventQ.top();
-        EventQ.pop();
-        Now = event.time;
-        
-        //take compartment counts for output
-        if(Now-delta>reportingThreshold){
-            I1vec.push_back(I1sum);
-            Irvec.push_back(Irsum);
-            Svec.push_back(Ssum);
-            Rvec.push_back(Rsum);
-            timevec.push_back(Now);
-            int TiterLevel50 = 0;
-            int TiterLevel100 = 0;
-            int TiterLevel2048 = 0;
-            for(Person* p: people){
-                if(p->getTiterLevel()<=50){
-                    TiterLevel50++;
-                }
-                else if(p->getTiterLevel()<=100){
-                    TiterLevel100++;
-                }
-                else{
-                    TiterLevel2048++;
-                }
-            }
-            antTit50.push_back(TiterLevel50);
-            antTit100.push_back(TiterLevel100);
-            antTit2048.push_back(TiterLevel2048);
-            delta=Now;
-        }
-        //display events in queue
-        if(Now>counter){
-/*             cout<<"Loop "<< ii<<"\n";
-             cout<<"Now "<<Now<<"\n";
-             cout<<" queue size "<<EventQ.size()<<"\n";
-             cout << "\tINFECTIOUS_CONTACT: " << event_counter[INFECTIOUS_CONTACT] << endl;
-             cout << "\tINFECTION_RECOVERY: " << event_counter[INFECTION_RECOVERY] << endl;
-             cout<< "\tBEGIN_SHEDDING: " << event_counter[BEGIN_SHEDDING] << endl;
-             cout<<"\tENVIRONMENT_CONTACT " << event_counter[ENVIRONMENT_CONTACT]<< endl;
-             cout<<"\tCHECK_ENVIRONMENT " << event_counter[CHECK_ENVIRONMENT]<< endl;
-             cout << "\tDEATH: " << event_counter[DEATH] << endl;*/
-             counter+=.1;
-             ii++;
-        }
-        //update virus particles in environment
-        double timeStep = Now - previousTime;
-        if(timeStep > 0 and environment > 0){
-            environment+=exp(-inactivationRate*timeStep*365);
-            if(environment < 0){
-                environment = 0;
-            }
-        }
-        
-        Person* individual = event.person;
-        if(event.type==INFECTIOUS_CONTACT){
-            if(sheddingPeople.count(individual)>0){//check this event is still applicable
+        switch (waningImmunityScenario) {
+            case 1:{//Famulare waning function
+                Event event = EventQ.top();
+                EventQ.pop();
+                Now = event.time;
                 
-                //choose person to contact
-                int contact_idx = unif_int(rng);
-                contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
-                Person* contact = people[contact_idx];
-                
-                //no simultaneous infections
-                if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
-                    
-                    //wane immunity if applicable
-                    if(contact->getTimeAtInfection()!=numeric_limits<double>::max()){
-                        contact->waning(Now);
-                    }
-                    
-                    //check susceptibility
-                    double r2 = unif_real(rng);
-                    if(r2<contact->probInfGivenDose(I1DC)){//just need suffix, prefix doesn't change dose
-                        if(contact->getInfectionStatus()==S){
-                            Ssum--;
-                            I1sum++;
-                            infectByDirectContact(contact);
+                //take compartment counts for output
+                if(Now-delta>reportingThreshold){
+                    I1vec.push_back(I1sum);
+                    Irvec.push_back(Irsum);
+                    Svec.push_back(Ssum);
+                    Rvec.push_back(Rsum);
+                    timevec.push_back(Now);
+                    int TiterLevel50 = 0;
+                    int TiterLevel100 = 0;
+                    int TiterLevel2048 = 0;
+                    for(Person* p: people){
+                        if(p->getTiterLevel()<=50){
+                            TiterLevel50++;
+                        }
+                        else if(p->getTiterLevel()<=100){
+                            TiterLevel100++;
                         }
                         else{
-                            Rsum--;
-                            Irsum++;
-                            infectByDirectContact(contact);
+                            TiterLevel2048++;
+                        }
+                    }
+                    antTit50.push_back(TiterLevel50);
+                    antTit100.push_back(TiterLevel100);
+                    antTit2048.push_back(TiterLevel2048);
+                    delta=Now;
+                }
+                //display events in queue
+                if(Now>counter){
+                    /*             cout<<"Loop "<< ii<<"\n";
+                     cout<<"Now "<<Now<<"\n";
+                     cout<<" queue size "<<EventQ.size()<<"\n";
+                     cout << "\tINFECTIOUS_CONTACT: " << event_counter[INFECTIOUS_CONTACT] << endl;
+                     cout << "\tINFECTION_RECOVERY: " << event_counter[INFECTION_RECOVERY] << endl;
+                     cout<< "\tBEGIN_SHEDDING: " << event_counter[BEGIN_SHEDDING] << endl;
+                     cout<<"\tENVIRONMENT_CONTACT " << event_counter[ENVIRONMENT_CONTACT]<< endl;
+                     cout<<"\tCHECK_ENVIRONMENT " << event_counter[CHECK_ENVIRONMENT]<< endl;
+                     cout << "\tDEATH: " << event_counter[DEATH] << endl;*/
+                    counter+=.1;
+                    ii++;
+                }
+                //update virus particles in environment
+                double timeStep = Now - previousTime;
+                if(timeStep > 0 and environment > 0){
+                    environment+=exp(-inactivationRate*timeStep*365);
+                    if(environment < 0){
+                        environment = 0;
+                    }
+                }
+                
+                Person* individual = event.person;
+                if(event.type==INFECTIOUS_CONTACT){
+                    if(sheddingPeople.count(individual)>0){//check this event is still applicable
+                        
+                        //choose person to contact
+                        int contact_idx = unif_int(rng);
+                        contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
+                        Person* contact = people[contact_idx];
+                        
+                        //no simultaneous infections
+                        if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
+                            
+                            //wane immunity if applicable
+                            if(contact->getTimeAtInfection()!=numeric_limits<double>::max()){
+                                contact->waning(Now);
+                            }
+                            
+                            //check susceptibility
+                            double r2 = unif_real(rng);
+                            if(r2<contact->probInfGivenDose(I1DC)){//just need suffix, prefix doesn't change dose
+                                if(contact->getInfectionStatus()==S){
+                                    Ssum--;
+                                    I1sum++;
+                                    infectByDirectContact(contact);
+                                }
+                                else{
+                                    Rsum--;
+                                    Irsum++;
+                                    infectByDirectContact(contact);
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+                else if (event.type==INFECTION_RECOVERY) {
+                    if(individual->getInfectionStatus()!=S or individual->getInfectionStatus()!=R){//check that this event is still applicable
+                        if(individual->getInfectionStatus()==I1DC){
+                            I1sum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecI1++;
+                        }
+                        else if(individual->getInfectionStatus()==I1E){
+                            I1Esum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecI1++;
+                        }
+                        else if(individual->getInfectionStatus()==IRE){
+                            IrEsum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecIr++;
+                        }
+                        else if(individual->getInfectionStatus()==IRDC){
+                            Irsum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecIr++;
                         }
                     }
                 }
-                
-            }
-        }
-        else if (event.type==INFECTION_RECOVERY) {
-            if(individual->getInfectionStatus()!=S or individual->getInfectionStatus()!=R){//check that this event is still applicable
-                if(individual->getInfectionStatus()==I1DC){
-                    I1sum--;
-                    Rsum++;
-                    individual->setInfectionStatus(R);
-                    sheddingPeople.erase(individual);
-                    numRecI1++;
-                }
-                else if(individual->getInfectionStatus()==I1E){
-                    I1Esum--;
-                    Rsum++;
-                    individual->setInfectionStatus(R);
-                    sheddingPeople.erase(individual);
-                    numRecI1++;
-                }
-                else if(individual->getInfectionStatus()==IRE){
-                    IrEsum--;
-                    Rsum++;
-                    individual->setInfectionStatus(R);
-                    sheddingPeople.erase(individual);
-                    numRecIr++;
-                }
-                else if(individual->getInfectionStatus()==IRDC){
-                    Irsum--;
-                    Rsum++;
-                    individual->setInfectionStatus(R);
-                    sheddingPeople.erase(individual);
-                    numRecIr++;
-                }
-            }
-        }
-        else if(event.type == BEGIN_SHEDDING){
-            if(individual->getInfectionStatus()!=S or individual->getInfectionStatus()!=R){//check event still applicable
-                sheddingPeople.insert(individual);
-            }
-        }
-        else if(event.type == ENVIRONMENT_CONTACT){
-            //define a dose of virus from environment
-            virusCon = environment; //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
-            envDose = 2*virusCon; //2 is num L water drank per day
-            
-            //no simultaneous infections
-            if(individual->getTimeToShed() < Now and sheddingPeople.count(individual)==0){
-                
-                //check susceptibility
-                double r2 = unif_real(rng);
-                if(r2<individual->probInfGivenDose(I1E)){//just need suffix, prefix doesn't change dose
-                    if(individual->getInfectionStatus()==S){
-                        Ssum--;
-                        I1Esum++;
-                        infectByEnvironment(individual);
-                    }
-                    else{
-                        Rsum--;
-                        IrEsum++;
-                        infectByEnvironment(individual);
+                else if(event.type == BEGIN_SHEDDING){
+                    if(individual->getInfectionStatus()!=S or individual->getInfectionStatus()!=R){//check event still applicable
+                        sheddingPeople.insert(individual);
                     }
                 }
+                else if(event.type == ENVIRONMENT_CONTACT){
+                    //define a dose of virus from environment
+                    virusCon = environment; //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
+                    envDose = 2*virusCon; //2 is num L water drank per day
+                    
+                    //no simultaneous infections
+                    if(individual->getTimeToShed() < Now and sheddingPeople.count(individual)==0){
+                        
+                        //check susceptibility
+                        double r2 = unif_real(rng);
+                        if(r2<individual->probInfGivenDose(I1E)){//just need suffix, prefix doesn't change dose
+                            if(individual->getInfectionStatus()==S){
+                                Ssum--;
+                                I1Esum++;
+                                infectByEnvironment(individual);
+                            }
+                            else{
+                                Rsum--;
+                                IrEsum++;
+                                infectByEnvironment(individual);
+                            }
+                        }
+                    }
+                    
+                    //update environment with additions
+                    if(sheddingPeople.count(individual) > 0){
+                        environment+=gramsFeces*100;//100 is just a place holder since real function to determine viral load depends on age
+                    }
+                    
+                    //set next time to contact environment
+                    EventQ.emplace(Now + (1/(double)365),ENVIRONMENT_CONTACT,individual);
+                    event_counter[ENVIRONMENT_CONTACT]++;
+                }
+                else if(event.type==CHECK_ENVIRONMENT){
+                    environmentalSurveillance();
+                }
+                else if(event.type == DEATH){
+                    numDeaths++;
+                    numBirths++;
+                    switch (individual->getInfectionStatus()) {
+                        case S:
+                        {
+                            //don't need to update compartment counts
+                            break;
+                        }
+                        case I1DC:
+                        {
+                            I1sum--;
+                            Ssum++;
+                            break;
+                        }
+                        case R:
+                        {
+                            Rsum--;
+                            Ssum++;
+                            break;
+                        }
+                        case IRDC:
+                        {
+                            Irsum--;
+                            Ssum++;
+                            break;
+                        }
+                        case I1E:
+                        {
+                            I1Esum--;
+                            Ssum++;
+                            break;
+                        }
+                        case IRE:
+                        {
+                            IrEsum--;
+                            Ssum++;
+                            break;
+                        }
+                    }
+                    individual->reset();
+                    
+                    //set time to death
+                    death(individual);
+                    
+                }
+                event_counter[event.type]--;
+                previousTime = Now;
+                
+
+                break;
             }
-            
-            //update environment with additions
-            if(sheddingPeople.count(individual) > 0){
-                environment+=gramsFeces*100;//100 is just a place holder since real function to determine viral load depends on age
+            case 2:{
+                Event event = EventQ.top();
+                EventQ.pop();
+                Now = event.time;
+                
+                //take compartment counts for output
+                if(Now-delta>reportingThreshold){
+                    I1vec.push_back(I1sum);
+                    Irvec.push_back(Irsum);
+                    Svec.push_back(Ssum);
+                    Rvec.push_back(Rsum);
+                    timevec.push_back(Now);
+                    int TiterLevel50 = 0;
+                    int TiterLevel100 = 0;
+                    int TiterLevel2048 = 0;
+                    for(Person* p: people){
+                        if(p->getTiterLevel()<=50){
+                            TiterLevel50++;
+                        }
+                        else if(p->getTiterLevel()<=100){
+                            TiterLevel100++;
+                        }
+                        else{
+                            TiterLevel2048++;
+                        }
+                    }
+                    antTit50.push_back(TiterLevel50);
+                    antTit100.push_back(TiterLevel100);
+                    antTit2048.push_back(TiterLevel2048);
+                    delta=Now;
+                }
+                //display events in queue
+                if(Now>counter){
+                    /*             cout<<"Loop "<< ii<<"\n";
+                     cout<<"Now "<<Now<<"\n";
+                     cout<<" queue size "<<EventQ.size()<<"\n";
+                     cout << "\tINFECTIOUS_CONTACT: " << event_counter[INFECTIOUS_CONTACT] << endl;
+                     cout << "\tINFECTION_RECOVERY: " << event_counter[INFECTION_RECOVERY] << endl;
+                     cout<< "\tBEGIN_SHEDDING: " << event_counter[BEGIN_SHEDDING] << endl;
+                     cout<<"\tENVIRONMENT_CONTACT " << event_counter[ENVIRONMENT_CONTACT]<< endl;
+                     cout<<"\tCHECK_ENVIRONMENT " << event_counter[CHECK_ENVIRONMENT]<< endl;
+                     cout << "\tDEATH: " << event_counter[DEATH] << endl;*/
+                    counter+=.1;
+                    ii++;
+                }
+                //update virus particles in environment
+                double timeStep = Now - previousTime;
+                if(timeStep > 0 and environment > 0){
+                    environment+=exp(-inactivationRate*timeStep*365);
+                    if(environment < 0){
+                        environment = 0;
+                    }
+                }
+                
+                Person* individual = event.person;
+                if(event.type==INFECTIOUS_CONTACT){
+                    if(sheddingPeople.count(individual)>0){//check this event is still applicable
+                        
+                        //choose person to contact
+                        int contact_idx = unif_int(rng);
+                        contact_idx = contact_idx >= individual->getIndex() ? contact_idx++ : contact_idx;
+                        Person* contact = people[contact_idx];
+                        
+                        //no simultaneous infections
+                        if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
+                            
+                            //wane immunity if applicable
+                            if(contact->getTimeAtInfection()!=numeric_limits<double>::max()){
+                                contact->waning(Now);
+                            }
+                            
+                            //check susceptibility
+                            double r2 = unif_real(rng);
+                            if(r2<contact->probInfGivenDose(I1DC)){//just need suffix, prefix doesn't change dose
+                                if(contact->getInfectionStatus()==S){
+                                    Ssum--;
+                                    I1sum++;
+                                    infectByDirectContact(contact);
+                                }
+                                else{
+                                    Rsum--;
+                                    Irsum++;
+                                    infectByDirectContact(contact);
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+                else if (event.type==INFECTION_RECOVERY) {
+                    if(individual->getInfectionStatus()!=S or individual->getInfectionStatus()!=R){//check that this event is still applicable
+                        if(individual->getInfectionStatus()==I1DC){
+                            I1sum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecI1++;
+                        }
+                        else if(individual->getInfectionStatus()==I1E){
+                            I1Esum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecI1++;
+                        }
+                        else if(individual->getInfectionStatus()==IRE){
+                            IrEsum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecIr++;
+                        }
+                        else if(individual->getInfectionStatus()==IRDC){
+                            Irsum--;
+                            Rsum++;
+                            individual->setInfectionStatus(R);
+                            sheddingPeople.erase(individual);
+                            numRecIr++;
+                        }
+                    }
+                }
+                else if(event.type == BEGIN_SHEDDING){
+                    if(individual->getInfectionStatus()!=S or individual->getInfectionStatus()!=R){//check event still applicable
+                        sheddingPeople.insert(individual);
+                    }
+                }
+                else if(event.type == ENVIRONMENT_CONTACT){
+                    //define a dose of virus from environment
+                    virusCon = environment; //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
+                    envDose = 2*virusCon; //2 is num L water drank per day
+                    
+                    //no simultaneous infections
+                    if(individual->getTimeToShed() < Now and sheddingPeople.count(individual)==0){
+                        
+                        //check susceptibility
+                        double r2 = unif_real(rng);
+                        if(r2<individual->probInfGivenDose(I1E)){//just need suffix, prefix doesn't change dose
+                            if(individual->getInfectionStatus()==S){
+                                Ssum--;
+                                I1Esum++;
+                                infectByEnvironment(individual);
+                            }
+                            else{
+                                Rsum--;
+                                IrEsum++;
+                                infectByEnvironment(individual);
+                            }
+                        }
+                    }
+                    
+                    //update environment with additions
+                    if(sheddingPeople.count(individual) > 0){
+                        environment+=gramsFeces*100;//100 is just a place holder since real function to determine viral load depends on age
+                    }
+                    
+                    //set next time to contact environment
+                    EventQ.emplace(Now + (1/(double)365),ENVIRONMENT_CONTACT,individual);
+                    event_counter[ENVIRONMENT_CONTACT]++;
+                }
+                else if(event.type==CHECK_ENVIRONMENT){
+                    environmentalSurveillance();
+                }
+                else if(event.type == DEATH){
+                    numDeaths++;
+                    numBirths++;
+                    switch (individual->getInfectionStatus()) {
+                        case S:
+                        {
+                            //don't need to update compartment counts
+                            break;
+                        }
+                        case I1DC:
+                        {
+                            I1sum--;
+                            Ssum++;
+                            break;
+                        }
+                        case R:
+                        {
+                            Rsum--;
+                            Ssum++;
+                            break;
+                        }
+                        case IRDC:
+                        {
+                            Irsum--;
+                            Ssum++;
+                            break;
+                        }
+                        case I1E:
+                        {
+                            I1Esum--;
+                            Ssum++;
+                            break;
+                        }
+                        case IRE:
+                        {
+                            IrEsum--;
+                            Ssum++;
+                            break;
+                        }
+                    }
+                    individual->reset();
+                    
+                    //set time to death
+                    death(individual);
+                    
+                }
+                event_counter[event.type]--;
+                previousTime = Now;
+                break;
             }
-            
-            //set next time to contact environment
-            EventQ.emplace(Now + (1/(double)365),ENVIRONMENT_CONTACT,individual);
-            event_counter[ENVIRONMENT_CONTACT]++;
+            default:
+                cout<<"incorrect input";
+                exit(-1);
+                break;
         }
-        else if(event.type==CHECK_ENVIRONMENT){
-            environmentalSurveillance();
-        }
-        else if(event.type == DEATH){
-            numDeaths++;
-            numBirths++;
-            switch (individual->getInfectionStatus()) {
-                case S:
-                {
-                    //don't need to update compartment counts
-                    break;
-                }
-                case I1DC:
-                {
-                    I1sum--;
-                    Ssum++;
-                    break;
-                }
-                case R:
-                {
-                    Rsum--;
-                    Ssum++;
-                    break;
-                }
-                case IRDC:
-                {
-                    Irsum--;
-                    Ssum++;
-                    break;
-                }
-                case I1E:
-                {
-                    I1Esum--;
-                    Ssum++;
-                    break;
-                }
-                case IRE:
-                {
-                    IrEsum--;
-                    Ssum++;
-                    break;
-                }
-            }
-            individual->reset();
-            
-            //set time to death
-            death(individual);
-            
-        }
-        event_counter[event.type]--;
-        previousTime = Now;
-        
         return 1;
+
     }
     
 };
