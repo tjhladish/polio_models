@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <math.h>
+#include <assert.h>
 #include <vector>
 #include <array>
 //#include <gsl/gsl_odeiv2.h>
@@ -16,8 +17,10 @@
 
 using namespace std;
 
-int main(){
-    
+int main(int argc, char** argv){
+   
+    assert(argc==2);
+
 //within-host parameters
     const double mu0 = 0.1841; //pathogen growth rate
     const double b0 = 1; //initial pathogen concentration
@@ -42,8 +45,8 @@ int main(){
 //time parameters
     const double dt = 0.1; //time step
     //N*M must be a perfect square
-    const int N = 9; //delta t * N = final time of interest T (days)
-    const int M = 9; //delta t * M = final time since infection tau (days)
+    const unsigned int N = atoi(argv[1]); //delta t * N = final time of interest T (days)
+    const unsigned int M = atoi(argv[1]); //delta t * M = final time since infection tau (days)
     //const double T = dt*N;
     const double tau = dt*M;
     
@@ -115,18 +118,31 @@ cout << "d\n";
         double intSum1 = 0;
         for(unsigned int j=0; j<M; j++){
             const unsigned int index = M*k+j;
+            assert(beta1.size()>j);
+            assert(beta2.size()>j);
+            assert(gamma1.size()>j);
+            assert(gamma2.size()>j);
+            assert(I1.size()>index);
+            assert(Ir.size()>index);
             intSum  += dt*(beta1[j]*I1[index] + beta2[j]*Ir[index]);
             intSum1 += dt*(gamma1[j]*I1[index]+gamma2[j]*Ir[index]);
             //intSum1,intsum get too large when N,M>20
         }
         
+        assert(S.size()>k+1);
         S[k+1] = (S[k] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);
         
         double intSum2 =0;
         for(unsigned int j=0; j<M; j++){
             if(j==0){
+                assert(R.size()>(M*(k+1))+j);
                 R[(M*(k+1))+j] = intSum1;//boundary condition
             }
+            assert(R.size()>(M*(k+1))+(j+1));
+            assert(R.size()>(M*k)+j);
+            assert(rho.size()>j+1);
+            assert(rho.size()>j);
+            assert(R.size()>(M*(k+1))+j);
             R[(M*(k+1))+(j+1)] = R[(M*k)+j]/(1 + dt*((rho[j+1]/totalPop)*intSum+delta));
             intSum2+= dt*rho[j]*R[(M*(k+1))+j];
         }
@@ -134,16 +150,32 @@ cout << "d\n";
         for(unsigned int j=0; j<M; j++){
             if(j==0){
                 //boundary conditions
+                assert(I1.size()>(M*(k+1))+j);
+                assert(S.size()>k+1);
+                assert(Ir.size()>(M*(k+1))+j);
                 I1[(M*(k+1))+j] = intSum*S[k+1]/totalPop;
                 Ir[(M*(k+1))+j] = (1.0/totalPop)*intSum2*intSum;
             }
+           
+            assert(I1.size()>(M*(k+1))+(j+1));
+            assert(I1.size()>(M*k)+j);
+            assert(gamma1.size()>j+1);
+            assert(Ir.size()>(M*(k+1))+(j+1));
+            assert(Ir.size()>(M*k)+j);
+            assert(gamma2.size()>j+1);
+            assert(beta1.size()>j);
+            assert(I1.size()>(M*k)+j);
+            assert(beta2.size()>j);
+            assert(Ir.size()>(M*k)+j);
             
             I1[(M*(k+1))+(j+1)] = I1[(M*k)+j]/(1+dt*(gamma1[j+1]+delta));
             Ir[(M*(k+1))+(j+1)] = Ir[(M*k)+j]/(1+dt*(gamma2[j+1]+delta));
             intSum3 += dt*(beta1[j]*I1[(M*k)+j]+beta2[j]*Ir[(M*k)+j]);
             
         }
-        
+       
+        assert(symptomaticIncidence.size()>k+1);
+        assert(S.size()>k+1);
         symptomaticIncidence[k+1] = S[k+1]*intSum3/totalPop;
     }
 cout << "e\n";
