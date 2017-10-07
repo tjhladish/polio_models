@@ -48,7 +48,7 @@ int main(int argc, char** argv){
     const unsigned int N = atoi(argv[1]); //delta t * N = final time of interest T (days)
     const unsigned int M = atoi(argv[1]); //delta t * M = final time since infection tau (days)
     //const double T = dt*N;
-    const double tau = dt*M;
+    //const double tau = dt*M;
     
 //vectors for linking functions
     vector<double> beta1(M,0.0);
@@ -99,7 +99,7 @@ int main(int argc, char** argv){
     vector<double> symptomaticIncidence (N,0.0);
     symptomaticIncidence[0] = 1;
 //initialize between-host compartments
-    for(int i = 0; i < M; i++) I1[i][0] = 1; 
+    for(unsigned int i = 0; i < M; i++) I1[0][i] = 1;
 
 //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
@@ -108,9 +108,10 @@ int main(int argc, char** argv){
     for(unsigned int k=1; k<N; k++){//looping through time (rows)
         double intSum = 0;
         double intSum1 = 0;
-        for(unsigned int j=0; j<M; j++){//columns
-            intSum  += dt * (beta1[j] * I1[k][j] + beta2[j] * Ir[k][j]);
-            intSum1 += dt * (gamma1[j] * I1[k][j] + gamma2[j] * Ir[k][j]);
+        for(unsigned int j=0; j<M; j++){//looping through time since infection (columns)
+            //linearize to get k-1 index
+            intSum  += dt * (beta1[j] * I1[k-1][j] + beta2[j] * Ir[k-1][j]);
+            intSum1 += dt * (gamma1[j] * I1[k-1][j] + gamma2[j] * Ir[k-1][j]);
             //intSum1,intsum get too large when N,M>20
         }
         
@@ -121,8 +122,7 @@ int main(int argc, char** argv){
             if(j==0){
                 R[k][j] = intSum1;//boundary condition
             } else {
-                // Indexing doesn't feel right here.  I think R[M*(k-1)+j] should be R[M*k+(j-1)] but I don't know the math.
-                R[k][j] = R[k-1][j]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
+                R[k][j] = R[k-1][j-1]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
             }
             intSum2+= dt*rho[j]*R[k][j];
         }
