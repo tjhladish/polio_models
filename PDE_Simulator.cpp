@@ -60,7 +60,6 @@ int main(int argc, char** argv){
 //vectors for within-host solution
     vector<double> pathogen(M);
     vector<double> antibody(M);
-cout << "a\n";
     //for(double t = 0; t<tau; t += dt){
     for (unsigned int i = 0; i < M; ++i) {
         const double t = dt*i;
@@ -77,7 +76,6 @@ cout << "a\n";
         pathogen[i] = b;
         antibody[i] = y;
     }
-cout << "b\n";
 //Construct linking functions
     for(unsigned int j =0; j<pathogen.size(); ++j){
         const double beta1Link = (K1*pathogen[j])/(pathogen[j]+C);
@@ -101,7 +99,6 @@ cout << "b\n";
     vector<double> symptomaticIncidence (N,0.0);
     symptomaticIncidence[0] = 1;
 //initialize between-host compartments
-cout << "c\n";
     for(int i = 0; i<M;i++){
         I1[i] = 1;
         //R[i] = 0;
@@ -112,74 +109,45 @@ cout << "c\n";
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
     
-cout << "d\n";
-    for(unsigned int k=0; k<(N-1); k++){//looping through time
+    for(unsigned int k=1; k<N; k++){//looping through time (rows)
         double intSum = 0;
         double intSum1 = 0;
-        for(unsigned int j=0; j<M; j++){
+        for(unsigned int j=0; j<M; j++){//columns
             const unsigned int index = M*k+j;
-            assert(beta1.size()>j);
-            assert(beta2.size()>j);
-            assert(gamma1.size()>j);
-            assert(gamma2.size()>j);
-            assert(I1.size()>index);
-            assert(Ir.size()>index);
             intSum  += dt*(beta1[j]*I1[index] + beta2[j]*Ir[index]);
             intSum1 += dt*(gamma1[j]*I1[index]+gamma2[j]*Ir[index]);
             //intSum1,intsum get too large when N,M>20
         }
         
-        assert(S.size()>k+1);
-        S[k+1] = (S[k] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);
+        S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);//
         
         double intSum2 =0;
-        for(unsigned int j=0; j<M; j++){
+        for(unsigned int j=0; j<M; j++){//columns
             if(j==0){
-                assert(R.size()>(M*(k+1))+j);
-                R[(M*(k+1))+j] = intSum1;//boundary condition
+                R[M*k] = intSum1;//boundary condition
+            } else {
+                // Indexing doesn't feel right here.  I think R[M*(k-1)+j] should be R[M*k+(j-1)] but I don't know the math.
+                R[M*k+j] = R[M*(k-1)+j]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
             }
-            assert(R.size()>(M*(k+1))+(j+1));
-            assert(R.size()>(M*k)+j);
-            assert(rho.size()>j+1);
-            assert(rho.size()>j);
-            assert(R.size()>(M*(k+1))+j);
-            R[(M*(k+1))+(j+1)] = R[(M*k)+j]/(1 + dt*((rho[j+1]/totalPop)*intSum+delta));
-            intSum2+= dt*rho[j]*R[(M*(k+1))+j];
+            intSum2+= dt*rho[j]*R[M*k+j];
         }
         double intSum3=0;
-        for(unsigned int j=0; j<M; j++){
+        for(unsigned int j=0; j<M; j++){//columns
             if(j==0){
                 //boundary conditions
-                assert(I1.size()>(M*(k+1))+j);
-                assert(S.size()>k+1);
-                assert(Ir.size()>(M*(k+1))+j);
-                I1[(M*(k+1))+j] = intSum*S[k+1]/totalPop;
-                Ir[(M*(k+1))+j] = (1.0/totalPop)*intSum2*intSum;
+                I1[M*k] = intSum*S[k]/totalPop;
+                Ir[M*k] = (1.0/totalPop)*intSum2*intSum;
+            } else {
+                I1[M*k+j] = I1[M*(k-1)+(j-1)]/(1+dt*(gamma1[j]+delta));
+                Ir[M*k+j] = Ir[M*(k-1)+(j-1)]/(1+dt*(gamma2[j]+delta));
             }
-           
-            assert(I1.size()>(M*(k+1))+(j+1));
-            assert(I1.size()>(M*k)+j);
-            assert(gamma1.size()>j+1);
-            assert(Ir.size()>(M*(k+1))+(j+1));
-            assert(Ir.size()>(M*k)+j);
-            assert(gamma2.size()>j+1);
-            assert(beta1.size()>j);
-            assert(I1.size()>(M*k)+j);
-            assert(beta2.size()>j);
-            assert(Ir.size()>(M*k)+j);
-            
-            I1[(M*(k+1))+(j+1)] = I1[(M*k)+j]/(1+dt*(gamma1[j+1]+delta));
-            Ir[(M*(k+1))+(j+1)] = Ir[(M*k)+j]/(1+dt*(gamma2[j+1]+delta));
-            intSum3 += dt*(beta1[j]*I1[(M*k)+j]+beta2[j]*Ir[(M*k)+j]);
+            intSum3 += dt*(beta1[j]*I1[M*(k-1)+j]+beta2[j]*Ir[M*(k-1)+j]);
             
         }
        
-        assert(symptomaticIncidence.size()>k+1);
-        assert(S.size()>k+1);
-        symptomaticIncidence[k+1] = S[k+1]*intSum3/totalPop;
+        symptomaticIncidence[k] = S[k]*intSum3/totalPop;
     }
-cout << "e\n";
-    /*cout<<"\n R vec\n";
+    cout<<"\n R vec\n";
     cout<<"R vec size "<<R.size()<<"\n";
     for(unsigned int i =0; i<R.size();i++){
         cout<<R[i]<<" ";
@@ -204,6 +172,6 @@ cout << "e\n";
     for(unsigned int i =0; i<symptomaticIncidence.size();i++){
         cout<<symptomaticIncidence[i]<<" ";
     }
-    cout<<"endl";*/
+    cout<<"endl";
     return 0;
 }
