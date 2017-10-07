@@ -51,11 +51,11 @@ int main(int argc, char** argv){
     const double tau = dt*M;
     
 //vectors for linking functions
-    vector<double> beta1(M+1,0.0);
-    vector<double> beta2(M+1,0.0);
-    vector<double> gamma1(M+1,0.0);
-    vector<double> gamma2(M+1,0.0);
-    vector<double> rho(M+1,0.0);
+    vector<double> beta1(M,0.0);
+    vector<double> beta2(M,0.0);
+    vector<double> gamma1(M,0.0);
+    vector<double> gamma2(M,0.0);
+    vector<double> rho(M,0.0);
     
 //vectors for within-host solution
     vector<double> pathogen(M);
@@ -93,17 +93,13 @@ int main(int argc, char** argv){
 //vectors for between-host solution
     vector<double> S(N,0.0);
     S[0] = 100;
-    vector<double> I1(N*M,0.0);
-    vector<double> R(N*M,0.0);
-    vector<double> Ir(N*M,0.0);
+    vector<vector<double> > I1(N,vector<double>(M,0.0));
+    vector<vector<double> > R(N,vector<double>(M,0.0));
+    vector<vector<double> > Ir(N,vector<double>(M,0.0));
     vector<double> symptomaticIncidence (N,0.0);
     symptomaticIncidence[0] = 1;
 //initialize between-host compartments
-    for(int i = 0; i<M;i++){
-        I1[i] = 1;
-        //R[i] = 0;
-        //Ir[i] = 0;
-    }
+    for(int i = 0; i < M; i++) I1[i][0] = 1; 
 
 //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
@@ -113,9 +109,8 @@ int main(int argc, char** argv){
         double intSum = 0;
         double intSum1 = 0;
         for(unsigned int j=0; j<M; j++){//columns
-            const unsigned int index = M*k+j;
-            intSum  += dt*(beta1[j]*I1[index] + beta2[j]*Ir[index]);
-            intSum1 += dt*(gamma1[j]*I1[index]+gamma2[j]*Ir[index]);
+            intSum  += dt * (beta1[j] * I1[k][j] + beta2[j] * Ir[k][j]);
+            intSum1 += dt * (gamma1[j] * I1[k][j] + gamma2[j] * Ir[k][j]);
             //intSum1,intsum get too large when N,M>20
         }
         
@@ -124,54 +119,40 @@ int main(int argc, char** argv){
         double intSum2 =0;
         for(unsigned int j=0; j<M; j++){//columns
             if(j==0){
-                R[M*k] = intSum1;//boundary condition
+                R[k][j] = intSum1;//boundary condition
             } else {
                 // Indexing doesn't feel right here.  I think R[M*(k-1)+j] should be R[M*k+(j-1)] but I don't know the math.
-                R[M*k+j] = R[M*(k-1)+j]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
+                R[k][j] = R[k-1][j]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
             }
-            intSum2+= dt*rho[j]*R[M*k+j];
+            intSum2+= dt*rho[j]*R[k][j];
         }
         double intSum3=0;
         for(unsigned int j=0; j<M; j++){//columns
             if(j==0){
                 //boundary conditions
-                I1[M*k] = intSum*S[k]/totalPop;
-                Ir[M*k] = (1.0/totalPop)*intSum2*intSum;
+                I1[k][j] = intSum*S[k]/totalPop;
+                Ir[k][j] = (1.0/totalPop)*intSum2*intSum;
             } else {
-                I1[M*k+j] = I1[M*(k-1)+(j-1)]/(1+dt*(gamma1[j]+delta));
-                Ir[M*k+j] = Ir[M*(k-1)+(j-1)]/(1+dt*(gamma2[j]+delta));
+                I1[k][j] = I1[k-1][j-1]/(1+dt*(gamma1[j]+delta));
+                Ir[k][j] = Ir[k-1][j-1]/(1+dt*(gamma2[j]+delta));
             }
-            intSum3 += dt*(beta1[j]*I1[M*(k-1)+j]+beta2[j]*Ir[M*(k-1)+j]);
+            intSum3 += dt*(beta1[j]*I1[k-1][j]+beta2[j]*Ir[k-1][j]);
             
         }
        
         symptomaticIncidence[k] = S[k]*intSum3/totalPop;
     }
-    cout<<"\n R vec\n";
-    cout<<"R vec size "<<R.size()<<"\n";
-    for(unsigned int i =0; i<R.size();i++){
-        cout<<R[i]<<" ";
-    }
-    cout<<"\n I1 vec\n";
-    cout<<"I1 vec size "<<I1.size()<<"\n";
-    for(unsigned int i =0; i<I1.size();i++){
-        cout<<I1[i]<<" ";
-    }
-    cout<<"\n Ir vec\n";
-    cout<<"Ir vec size "<<Ir.size()<<"\n";
-    for(unsigned int i =0; i<Ir.size();i++){
-        cout<<Ir[i]<<" ";
-    }
-    cout<<"\n S vec\n";
-    cout<<"S vec size "<<S.size()<<"\n";
-    for(unsigned int i =0; i<S.size();i++){
-        cout<<S[i]<<" ";
-    }
-    cout<<"\n symptomatic incidence\n";
-    cout<<"symptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
-    for(unsigned int i =0; i<symptomaticIncidence.size();i++){
-        cout<<symptomaticIncidence[i]<<" ";
-    }
+
+    cout<<"\nR vec size "<<R.size()<<"\n";
+    for (auto v: R) { for (auto e: v) cout << e << " "; }
+    cout<<"\nI1 vec size "<<I1.size()<<"\n";
+    for (auto v: I1) { for (auto e: v) cout << e << " "; }
+    cout<<"\nIr vec size "<<Ir.size()<<"\n";
+    for (auto v: Ir) { for (auto e: v) cout << e << " "; }
+    cout<<"\nS vec size "<<S.size()<<"\n";
+    for (auto e: S) { cout << e << " "; }
+    cout<<"\nsymptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
+    for (auto e: symptomaticIncidence) { cout << e << " "; }
     cout<<"endl";
     return 0;
 }
