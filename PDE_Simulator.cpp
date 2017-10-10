@@ -26,21 +26,21 @@ int main(int argc, char** argv){
     const double b0 = 1; //initial pathogen concentration
     const double y0 = 1; //initial antibody concentration
     const double y1 = pow(10,5);//peak antibody concentration
-    const double t1 = 28; //duration of infection
+    const double t1 = 28; //duration of infection (days)
     const double mu = (1/t1)*log(y1/y0); //antibody growth rate
     const double c = b0*((mu-mu0)/(y0*(exp((mu-mu0)*t1)-1))); //pathogen clearance rate
     const double r = 1.69; //immunity shape parameter
     const double nu = 1.41; //immunity waning rate
     
 //between-host parameters
-    const double K1 = 100; //I1 contact rate
-    const double K2 = 50; //Ir contact rate
-    const double alpha1 = 13; //I1 recovery parameter
-    const double alpha2 = 31; //Ir recovery parameter
-    const double omega = 0.2; //waning parameter
+    const double K1 = (100/(double)365); //I1 daily contact rate
+    const double K2 = (50/(double)365); //Ir daily contact rate
+    const double alpha1 = (13/(double)365); //I1 daily recovery parameter
+    const double alpha2 = (31/(double)365); //Ir daily recovery parameter
+    const double omega = (0.2/(double)365); //daily waning parameter
     const double C = 0.0001; //saturation constant
-    const double delta = 0.02; //birth/death rate
-    const double totalPop = 101; //total population size
+    const double delta = (0.02/(double)365); //daily birth/death rate
+    //const double totalPop = 101; //total population size
     
 //time parameters
     const double dt = 0.1; //time step
@@ -60,7 +60,6 @@ int main(int argc, char** argv){
 //vectors for within-host solution
     vector<double> pathogen(M);
     vector<double> antibody(M);
-    //for(double t = 0; t<tau; t += dt){
     for (unsigned int i = 0; i < M; ++i) {
         const double t = dt*i;
         double b;
@@ -82,8 +81,10 @@ int main(int argc, char** argv){
         const double beta2Link = (K2*pathogen[j])/(pathogen[j]+C);
         const double gamma1Link = (alpha1*antibody[j])/(pathogen[j]+C);
         const double gamma2Link = (alpha2*antibody[j])/(pathogen[j]+C);
-        const double rhoLink = omega/(antibody[j]+C);
-        
+        double rhoLink = 0;
+        if(j>(t1/dt)){
+            rhoLink = omega/(antibody[j]+C);
+        }
         beta1[j]  = beta1Link;
         beta2[j]  = beta2Link;
         gamma1[j] = gamma1Link;
@@ -106,6 +107,17 @@ int main(int argc, char** argv){
     // approximate integrals using right end point rule
     
     for(unsigned int k=1; k<N; k++){//looping through time (rows)
+        //calculate the total population
+        int I1pop = 0;
+        int Rpop =0;
+        int Irpop=0;
+        for(unsigned int i = 0; i < I1.size(); i++){
+            I1pop += I1[k-1][i];
+            Rpop += R[k-1][i];
+            Irpop += Ir[k-1][i];
+        }
+        double totalPop = S[k-1] + I1pop + Rpop + Irpop;
+        assert(totalPop>0);
         double intSum = 0;
         double intSum1 = 0;
         for(unsigned int j=0; j<M; j++){//looping through time since infection (columns)
@@ -114,9 +126,7 @@ int main(int argc, char** argv){
             intSum1 += dt * (gamma1[j] * I1[k-1][j] + gamma2[j] * Ir[k-1][j]);
             //intSum1,intsum get too large when N,M>20
         }
-        
         S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);//
-        
         double intSum2 =0;
         for(unsigned int j=0; j<M; j++){//columns
             if(j==0){
