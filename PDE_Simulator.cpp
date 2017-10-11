@@ -19,7 +19,7 @@ using namespace std;
 
 int main(int argc, char** argv){
    
-    assert(argc==2);
+    assert(argc==3);
 
 //within-host parameters
     const double mu0 = 0.1841; //pathogen growth rate
@@ -44,9 +44,14 @@ int main(int argc, char** argv){
     
 //time parameters
     const double dt = 0.1; //time step
-    //N*M must be a perfect square
     const unsigned int N = atoi(argv[1]); //delta t * N = final time of interest T (days)
-    const unsigned int M = atoi(argv[1]); //delta t * M = final time since infection tau (days)
+    const unsigned int M = atoi(argv[2]); //delta t * M = final time since infection tau (days)
+
+//convergence parameters
+    //const double epsilon = 0.001;
+    //const unsigned int eq_interval = 10000;
+    //pair<unsigned int, double> obs_min;
+    //pair<unsigned int, double> obs_max;
     //const double T = dt*N;
     //const double tau = dt*M;
     
@@ -58,32 +63,26 @@ int main(int argc, char** argv){
     vector<double> rho(M,0.0);
     
 //vectors for within-host solution
-    vector<double> pathogen(M);
-    vector<double> antibody(M);
-    for (unsigned int i = 0; i < M; ++i) {
-        const double t = dt*i;
-        double b;
-        double y;
+//Construct linking functions
+    for (unsigned int j = 0; j < M; ++j) {
+        const double t = dt*j;
+        double pathogen;
+        double antibody;
         if(t<=t1){
-            b = b0*exp(mu0*t) - (c*y0*(exp(mu*t)-exp(mu0*t))/(mu-mu0));
-            y = y0*exp(mu*t);
+            pathogen = b0*exp(mu0*t) - (c*y0*(exp(mu*t)-exp(mu0*t))/(mu-mu0));
+            antibody = y0*exp(mu*t);
         }
         else{
-            b = 0;
-            y = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(t-t1)),-(1/(r-1)));
+            pathogen = 0;
+            antibody = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(t-t1)),-(1/(r-1)));
         }
-        pathogen[i] = b;
-        antibody[i] = y;
-    }
-//Construct linking functions
-    for(unsigned int j =0; j<pathogen.size(); ++j){
-        const double beta1Link = (K1*pathogen[j])/(pathogen[j]+C);
-        const double beta2Link = (K2*pathogen[j])/(pathogen[j]+C);
-        const double gamma1Link = (alpha1*antibody[j])/(pathogen[j]+C);
-        const double gamma2Link = (alpha2*antibody[j])/(pathogen[j]+C);
+        const double beta1Link = (K1*pathogen)/(pathogen+C);
+        const double beta2Link = (K2*pathogen)/(pathogen+C);
+        const double gamma1Link = (alpha1*antibody)/(pathogen+C);
+        const double gamma2Link = (alpha2*antibody)/(pathogen+C);
         double rhoLink = 0;
         if(j>(t1/dt)){
-            rhoLink = omega/(antibody[j]+C);
+            rhoLink = omega/(antibody+C);
         }
         beta1[j]  = beta1Link;
         beta2[j]  = beta2Link;
@@ -98,9 +97,11 @@ int main(int argc, char** argv){
     vector<vector<double> > R(N,vector<double>(M,0.0));
     vector<vector<double> > Ir(N,vector<double>(M,0.0));
     vector<double> symptomaticIncidence (N,0.0);
-    symptomaticIncidence[0] = 1;
 //initialize between-host compartments
-    for(unsigned int i = 0; i < M; i++) I1[0][i] = 1;
+    I1[0][0] = 1;
+    symptomaticIncidence[0] = 1.0/101;
+    //obs_min = {0,symptomaticIncidence[0]};
+    //obs_max = {0,symptomaticIncidence[0]};
 
 //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
@@ -108,13 +109,13 @@ int main(int argc, char** argv){
     
     for(unsigned int k=1; k<N; k++){//looping through time (rows)
         //calculate the total population
-        int I1pop = 0;
-        int Rpop =0;
-        int Irpop=0;
-        for(unsigned int i = 0; i < I1.size(); i++){
-            I1pop += I1[k-1][i];
-            Rpop += R[k-1][i];
-            Irpop += Ir[k-1][i];
+        double I1pop = 0;
+        double Rpop =0;
+        double Irpop=0;
+        for(unsigned int j = 0; j < M; j++){
+            I1pop += I1[k-1][j];
+            Rpop += R[k-1][j];
+            Irpop += Ir[k-1][j];
         }
         double totalPop = S[k-1] + I1pop + Rpop + Irpop;
         assert(totalPop>0);
@@ -153,16 +154,16 @@ int main(int argc, char** argv){
         symptomaticIncidence[k] = S[k]*intSum3/totalPop;
     }
 
-    cout<<"\nR vec size "<<R.size()<<"\n";
+/*    cout<<"\nR vec size "<<R.size()<<"\n";
     for (auto v: R) { for (auto e: v) cout << e << " "; }
     cout<<"\nI1 vec size "<<I1.size()<<"\n";
     for (auto v: I1) { for (auto e: v) cout << e << " "; }
     cout<<"\nIr vec size "<<Ir.size()<<"\n";
     for (auto v: Ir) { for (auto e: v) cout << e << " "; }
     cout<<"\nS vec size "<<S.size()<<"\n";
-    for (auto e: S) { cout << e << " "; }
-    cout<<"\nsymptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
-    for (auto e: symptomaticIncidence) { cout << e << " "; }
-    cout<<"endl";
+    for (auto e: S) { cout << e << " "; }*/
+    //cout<<"\nsymptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
+    for (auto e: symptomaticIncidence) { cout << e << endl; }
+    //cout<<endl;
     return 0;
 }

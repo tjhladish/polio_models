@@ -1,4 +1,4 @@
-FLAGS = -g -std=c++11 -Wall -Wextra -Wno-deprecated-declarations --pedantic
+FLAGS = -O2 -std=c++11 -Wall -Wextra -Wno-deprecated-declarations --pedantic
 output_dir=.
 
 ABCDIR = $(HOME)/work/AbcSmc
