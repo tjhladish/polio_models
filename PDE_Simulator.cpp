@@ -94,10 +94,11 @@ int main(int argc, char** argv){
 //vectors for between-host solution
     vector<double> S(N,0.0);
     S[0] = 100;
-    vector<vector<double> > I1(N,vector<double>(M,0.0));
-    vector<vector<double> > R(N,vector<double>(M,0.0));
-    vector<vector<double> > Ir(N,vector<double>(M,0.0));
+    vector<vector<double> > I1(2,vector<double>(M,0.0));
+    vector<vector<double> > R(2,vector<double>(M,0.0));
+    vector<vector<double> > Ir(2,vector<double>(M,0.0));
     vector<double> symptomaticIncidence (N,0.0);
+    vector<double> asymptomaticIncidence (N,0.0);
 //initialize between-host compartments
     I1[0][0] = 1;
     symptomaticIncidence[0] = 1.0/101;
@@ -109,15 +110,15 @@ int main(int argc, char** argv){
     // approximate integrals using right end point rule
 
     for(unsigned int k=1; k<N; k++){//looping through time (rows)
-        //if (k % 1000 == 0) cerr << k << " " << obs_max.second - obs_min.second << " | " <<  obs_max.first << "," << obs_max.second << endl;
+        if (k % 1000 == 0) cerr << k << " " << obs_max.second - obs_min.second << " | " <<  obs_max.first << "," << obs_max.second << endl;
         //calculate the total population
         double I1pop = 0;
-        double Rpop =0;
-        double Irpop=0;
+        double Rpop  = 0;
+        double Irpop = 0;
         for(unsigned int j = 0; j < M; j++){
-            I1pop += I1[k-1][j];
-            Rpop += R[k-1][j];
-            Irpop += Ir[k-1][j];
+            I1pop += I1[0][j];
+            Rpop +=   R[0][j];
+            Irpop += Ir[0][j];
         }
         double totalPop = S[k-1] + I1pop + Rpop + Irpop;
         assert(totalPop>0);
@@ -125,36 +126,37 @@ int main(int argc, char** argv){
         double intSum1 = 0;
         for(unsigned int j=0; j<M; j++){//looping through time since infection (columns)
             //linearize to get k-1 index
-            intSum  += dt * (beta1[j] * I1[k-1][j] + beta2[j] * Ir[k-1][j]);
-            intSum1 += dt * (gamma1[j] * I1[k-1][j] + gamma2[j] * Ir[k-1][j]);
+            intSum  += dt * (beta1[j] * I1[0][j] + beta2[j] * Ir[0][j]);
+            intSum1 += dt * (gamma1[j] * I1[0][j] + gamma2[j] * Ir[0][j]);
             //intSum1,intsum get too large when N,M>20
         }
         S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);//
         double intSum2 =0;
         for(unsigned int j=0; j<M; j++){//columns
-            if(j==0){
-                R[k][j] = intSum1;//boundary condition
+            if(j==0) {
+                R[1][j] = intSum1;//boundary condition
             } else {
-                R[k][j] = R[k-1][j-1]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
+                R[1][j] = R[0][j-1]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
             }
-            intSum2+= dt*rho[j]*R[k][j];
+            intSum2+= dt*rho[j]*R[1][j];
         }
         double intSum3=0;
         for(unsigned int j=0; j<M; j++){//columns
-            if(j==0){
+            if(j==0) {
                 //boundary conditions
-                I1[k][j] = intSum*S[k]/totalPop;
-                Ir[k][j] = (1.0/totalPop)*intSum2*intSum;
+                I1[1][j] = intSum*S[k]/totalPop;
+                Ir[1][j] = (1.0/totalPop)*intSum2*intSum;
             } else {
-                I1[k][j] = I1[k-1][j-1]/(1+dt*(gamma1[j]+delta));
-                Ir[k][j] = Ir[k-1][j-1]/(1+dt*(gamma2[j]+delta));
+                I1[1][j] = I1[0][j-1]/(1+dt*(gamma1[j]+delta));
+                Ir[1][j] = Ir[0][j-1]/(1+dt*(gamma2[j]+delta));
             }
-            intSum3 += dt*(beta1[j]*I1[k-1][j]+beta2[j]*Ir[k-1][j]);
-
+            intSum3 += dt*(beta1[j]*I1[0][j]+beta2[j]*Ir[0][j]);
         }
 
         const double sI = S[k]*intSum3/totalPop;
         symptomaticIncidence[k] = sI;
+
+        asymptomaticIncidence[k] = (1.0/totalPop)*intSum2*intSum3;
 
         // convergence bookkeeping
         if (sI >= obs_max.second) obs_max = {k, sI};       // update min and
@@ -187,12 +189,20 @@ int main(int argc, char** argv){
             if (obs_max.second - obs_min.second < epsilon) {
                 // woohoo!
                 symptomaticIncidence.resize(k+1);
+                asymptomaticIncidence.resize(k+1);
                 break;
             } else {
                 // aww ...
                 obs_deque.push_back(sI);
             }
         }
+        // shift just calculated row, making space for next iteration
+        for(unsigned int j = 0; j < M; j++){
+            I1[0][j] = I1[1][j];
+            R[0][j]  = R[1][j];
+            Ir[0][j] = Ir[1][j];
+        }
+  
      }
 
 /*    cout<<"\nR vec size "<<R.size()<<"\n";
@@ -204,7 +214,8 @@ int main(int argc, char** argv){
     cout<<"\nS vec size "<<S.size()<<"\n";
     for (auto e: S) { cout << e << " "; }*/
     //cout<<"\nsymptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
-    for (auto e: symptomaticIncidence) { cout << e << endl; }
+    //for (auto e: symptomaticIncidence) { cout << e << endl; }
+    for (auto e: asymptomaticIncidence) { cout << e << endl; }
     //cout<<endl;
     cerr << "Converged at [" << obs_min.second << ", " << obs_max.second << "] after " << symptomaticIncidence.size() << " observations\n";
     return 0;
