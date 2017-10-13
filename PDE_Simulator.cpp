@@ -3,16 +3,23 @@
 #include <assert.h>
 #include <vector>
 #include <array>
-#include <set>
+#include <deque>
 //#include <gsl/gsl_odeiv2.h>
 //#include <gsl/gsl_math.h>
 //#include "SIR_H.h"
 
 using namespace std;
 
+void usage() {
+
+   cerr << "\n\tUsage: ./pde <max_N> <M> <equilibrium_epsilon> <equilibrium_window>\n\n";
+   exit(-1);
+
+}
+
 int main(int argc, char** argv){
 
-    assert(argc==3);
+    if (argc!=5) usage();
 
 //within-host parameters
     const double mu0 = 0.1841; //pathogen growth rate
@@ -41,11 +48,11 @@ int main(int argc, char** argv){
     const unsigned int M = atoi(argv[2]); //delta t * M = final time since infection tau (days)
 
 //convergence parameters
-    const double epsilon = 0.001;
-    const unsigned int eq_interval = 10000;
+    const double epsilon = atof(argv[3]);
+    const unsigned int eq_interval = atoi(argv[4]);
     pair<unsigned int, double> obs_min;
     pair<unsigned int, double> obs_max;
-    set<pair<unsigned int, double>> obs_set;
+    deque<double> obs_deque;
     //const double T = dt*N;
     //const double tau = dt*M;
 
@@ -102,6 +109,7 @@ int main(int argc, char** argv){
     // approximate integrals using right end point rule
 
     for(unsigned int k=1; k<N; k++){//looping through time (rows)
+        //if (k % 1000 == 0) cerr << k << " " << obs_max.second - obs_min.second << " | " <<  obs_max.first << "," << obs_max.second << endl;
         //calculate the total population
         double I1pop = 0;
         double Rpop =0;
@@ -149,32 +157,42 @@ int main(int argc, char** argv){
         symptomaticIncidence[k] = sI;
 
         // convergence bookkeeping
-        if (sI >= obs_max.second) obs_max = {k, sI};  // update min and
-        if (sI <= obs_min.second) obs_min = {k, sI};  // max obs if necessary
+        if (sI >= obs_max.second) obs_max = {k, sI};       // update min and
+        if (sI <= obs_min.second) obs_min = {k, sI};       // max obs if necessary
         if (k<eq_interval) {
             // haven't generated enough data yet to know whether we've converged
-            obs_set.emplace(k, sI);
+            obs_deque.push_back(sI);
         } else {
             // have enough data; update min, max as needed and break if max-min < epsilon
-            const set<pair<unsigned int, double>>::iterator itr = obs_set.begin();
-            const pair<unsigned int, double> oldest_obs = *itr;
-            obs_set.erase(itr);
-            if (oldest_obs.first == obs_max.first) {
-                for (auto e: obs_set) { if (obs_max.second < e.second) obs_max = e; }
-            } else if (oldest_obs.first == obs_min.first) {
-                for (auto e: obs_set) { if (obs_min.second > e.second) obs_min = e; }
+            obs_deque.pop_front();
+            if (obs_max.first == k - eq_interval) {        // max val is old--need to find a new one
+                int offset = eq_interval - 1;
+                obs_max = {k - offset, obs_deque.front()}; // forced update
+                for (auto e: obs_deque) {                  // scan for a better max
+                    if (obs_max.second < e) {
+                        obs_max = {k-offset,e};
+                    }
+                    --offset;
+                }
+            } else if (obs_min.first == k - eq_interval) { // min val is old--need to find a new one
+                int offset = eq_interval - 1;
+                obs_min = {k - offset, obs_deque.front()}; // foced update
+                for (auto e: obs_deque) {                  // scan for a better min
+                    if (obs_min.second > e) {
+                        obs_min = {k-offset,e};
+                    }
+                    --offset;
+                }
             }
             if (obs_max.second - obs_min.second < epsilon) {
+                // woohoo!
                 symptomaticIncidence.resize(k+1);
                 break;
+            } else {
+                // aww ...
+                obs_deque.push_back(sI);
             }
         }
-        /*
-        const double epsilon = 0.001;
-        const unsigned int eq_interval = 10000;
-        pair<unsigned int, double> obs_min;
-        pair<unsigned int, double> obs_max;
-        set<pair<unsigned int, double> obs_set;*/
      }
 
 /*    cout<<"\nR vec size "<<R.size()<<"\n";
@@ -188,5 +206,6 @@ int main(int argc, char** argv){
     //cout<<"\nsymptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
     for (auto e: symptomaticIncidence) { cout << e << endl; }
     //cout<<endl;
+    cerr << "Converged at [" << obs_min.second << ", " << obs_max.second << "] after " << symptomaticIncidence.size() << " observations\n";
     return 0;
 }
