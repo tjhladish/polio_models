@@ -1,16 +1,9 @@
-//
-//  PDE_Simulator.cpp
-//  
-//
-//  Created by Celeste on 10/1/17.
-//
-//
-
 #include <iostream>
 #include <math.h>
 #include <assert.h>
 #include <vector>
 #include <array>
+#include <set>
 //#include <gsl/gsl_odeiv2.h>
 //#include <gsl/gsl_math.h>
 //#include "SIR_H.h"
@@ -18,7 +11,7 @@
 using namespace std;
 
 int main(int argc, char** argv){
-   
+
     assert(argc==3);
 
 //within-host parameters
@@ -31,7 +24,7 @@ int main(int argc, char** argv){
     const double c = b0*((mu-mu0)/(y0*(exp((mu-mu0)*t1)-1))); //pathogen clearance rate
     const double r = 1.69; //immunity shape parameter
     const double nu = 1.41; //immunity waning rate
-    
+
 //between-host parameters
     const double K1 = (100/(double)365); //I1 daily contact rate
     const double K2 = (50/(double)365); //Ir daily contact rate
@@ -41,27 +34,28 @@ int main(int argc, char** argv){
     const double C = 0.0001; //saturation constant
     const double delta = (0.02/(double)365); //daily birth/death rate
     //const double totalPop = 101; //total population size
-    
+
 //time parameters
     const double dt = 0.1; //time step
     const unsigned int N = atoi(argv[1]); //delta t * N = final time of interest T (days)
     const unsigned int M = atoi(argv[2]); //delta t * M = final time since infection tau (days)
 
 //convergence parameters
-    //const double epsilon = 0.001;
-    //const unsigned int eq_interval = 10000;
-    //pair<unsigned int, double> obs_min;
-    //pair<unsigned int, double> obs_max;
+    const double epsilon = 0.001;
+    const unsigned int eq_interval = 10000;
+    pair<unsigned int, double> obs_min;
+    pair<unsigned int, double> obs_max;
+    set<pair<unsigned int, double>> obs_set;
     //const double T = dt*N;
     //const double tau = dt*M;
-    
+
 //vectors for linking functions
     vector<double> beta1(M,0.0);
     vector<double> beta2(M,0.0);
     vector<double> gamma1(M,0.0);
     vector<double> gamma2(M,0.0);
     vector<double> rho(M,0.0);
-    
+
 //vectors for within-host solution
 //Construct linking functions
     for (unsigned int j = 0; j < M; ++j) {
@@ -100,13 +94,13 @@ int main(int argc, char** argv){
 //initialize between-host compartments
     I1[0][0] = 1;
     symptomaticIncidence[0] = 1.0/101;
-    //obs_min = {0,symptomaticIncidence[0]};
-    //obs_max = {0,symptomaticIncidence[0]};
+    obs_min = {0,symptomaticIncidence[0]};
+    obs_max = {0,symptomaticIncidence[0]};
 
 //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
-    
+
     for(unsigned int k=1; k<N; k++){//looping through time (rows)
         //calculate the total population
         double I1pop = 0;
@@ -148,11 +142,40 @@ int main(int argc, char** argv){
                 Ir[k][j] = Ir[k-1][j-1]/(1+dt*(gamma2[j]+delta));
             }
             intSum3 += dt*(beta1[j]*I1[k-1][j]+beta2[j]*Ir[k-1][j]);
-            
+
         }
-       
-        symptomaticIncidence[k] = S[k]*intSum3/totalPop;
-    }
+
+        const double sI = S[k]*intSum3/totalPop;
+        symptomaticIncidence[k] = sI;
+
+        // convergence bookkeeping
+        if (sI >= obs_max.second) obs_max = {k, sI};  // update min and
+        if (sI <= obs_min.second) obs_min = {k, sI};  // max obs if necessary
+        if (k<eq_interval) {
+            // haven't generated enough data yet to know whether we've converged
+            obs_set.emplace(k, sI);
+        } else {
+            // have enough data; update min, max as needed and break if max-min < epsilon
+            const set<pair<unsigned int, double>>::iterator itr = obs_set.begin();
+            const pair<unsigned int, double> oldest_obs = *itr;
+            obs_set.erase(itr);
+            if (oldest_obs.first == obs_max.first) {
+                for (auto e: obs_set) { if (obs_max.second < e.second) obs_max = e; }
+            } else if (oldest_obs.first == obs_min.first) {
+                for (auto e: obs_set) { if (obs_min.second > e.second) obs_min = e; }
+            }
+            if (obs_max.second - obs_min.second < epsilon) {
+                symptomaticIncidence.resize(k+1);
+                break;
+            }
+        }
+        /*
+        const double epsilon = 0.001;
+        const unsigned int eq_interval = 10000;
+        pair<unsigned int, double> obs_min;
+        pair<unsigned int, double> obs_max;
+        set<pair<unsigned int, double> obs_set;*/
+     }
 
 /*    cout<<"\nR vec size "<<R.size()<<"\n";
     for (auto v: R) { for (auto e: v) cout << e << " "; }
