@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <deque>
+#include <fstream>
 //#include <gsl/gsl_odeiv2.h>
 //#include <gsl/gsl_math.h>
 //#include "SIR_H.h"
@@ -12,15 +13,16 @@ using namespace std;
 
 void usage() {
 
-   cerr << "\n\tUsage: ./pde <max_N> <M> <equilibrium_epsilon> <equilibrium_window>\n\n";
+   cerr << "\n\tUsage: ./pde <max_simulationTime> <withinHostTime> <recoveryTime> <waningTime> <equilibrium_epsilon> <equilibrium_window>\n\n";
    exit(-1);
 
 }
 
 int main(int argc, char** argv){
 
-    if (argc!=5) usage();
-
+    if (argc!=7) usage();
+    ofstream myfile;
+    myfile.open("/Users/Celeste/Desktop/pde_test_asymp.csv");
 //within-host parameters
     const double mu0 = 0.1841; //pathogen growth rate
     const double b0 = 1; //initial pathogen concentration
@@ -39,17 +41,22 @@ int main(int argc, char** argv){
     const double alpha2 = (31/(double)365); //Ir daily recovery parameter
     const double omega = (0.2/(double)365); //daily waning parameter
     const double C = 0.0001; //saturation constant
+    const double C1 = 0.0001; //constant for recovery functions
+    const double C2 = 0.0001; //constant for waning function
     const double delta = (0.02/(double)365); //daily birth/death rate
     //const double totalPop = 101; //total population size
 
 //time parameters
-    const double dt = 0.1; //time step
-    const unsigned int N = atoi(argv[1]); //delta t * N = final time of interest T (days)
-    const unsigned int M = atoi(argv[2]); //delta t * M = final time since infection tau (days)
+    const double dt = 0.01; //time step
+    const unsigned int simulationTime = atoi(argv[1]); //delta t * simulationTime = final time of interest T (days)
+    const unsigned int withinHostTime = atoi(argv[2]); //delta t * withinHostTime = final time since infection tau (days)
+    const unsigned int recoveryTime = atoi(argv[3]); //delta t * recoveryTime = final infectious time of interest
+    //recoveryTime needs to be <= t1 (ideally this is t1)
+    const unsigned int waningTime = atoi(argv[4]); //delta t * waningTime = final waning time of interest
 
 //convergence parameters
-    const double epsilon = atof(argv[3]);
-    const unsigned int eq_interval = atoi(argv[4]);
+    const double epsilon = atof(argv[5]);
+    const unsigned int eq_interval = atoi(argv[6]);
     pair<unsigned int, double> obs_min;
     pair<unsigned int, double> obs_max;
     deque<double> obs_deque;
@@ -57,15 +64,15 @@ int main(int argc, char** argv){
     //const double tau = dt*M;
 
 //vectors for linking functions
-    vector<double> beta1(M,0.0);
-    vector<double> beta2(M,0.0);
-    vector<double> gamma1(M,0.0);
-    vector<double> gamma2(M,0.0);
-    vector<double> rho(M,0.0);
+    vector<double>  beta1(recoveryTime,0.0);
+    vector<double>  beta2(recoveryTime,0.0);
+    vector<double> gamma1(recoveryTime,0.0);
+    vector<double> gamma2(recoveryTime,0.0);
+    vector<double>    rho(waningTime,0.0);
 
 //vectors for within-host solution
 //Construct linking functions
-    for (unsigned int j = 0; j < M; ++j) {
+    for (unsigned int j = 0; j < withinHostTime; ++j) {
         const double t = dt*j;
         double pathogen;
         double antibody;
@@ -77,31 +84,37 @@ int main(int argc, char** argv){
             pathogen = 0;
             antibody = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(t-t1)),-(1/(r-1)));
         }
-        const double beta1Link = (K1*pathogen)/(pathogen+C);
-        const double beta2Link = (K2*pathogen)/(pathogen+C);
-        const double gamma1Link = (alpha1*antibody)/(pathogen+C);
-        const double gamma2Link = (alpha2*antibody)/(pathogen+C);
-        double rhoLink = 0;
-        if(j>(t1/dt)){
-            rhoLink = omega/(antibody+C);
+
+        
+        if(j>(t1/dt)){//only keeps track of waning rate during waning period
+            const double rhoLink = omega/(antibody+C2);
+            
+                          rho[j] = rhoLink;
         }
-        beta1[j]  = beta1Link;
-        beta2[j]  = beta2Link;
-        gamma1[j] = gamma1Link;
-        gamma2[j] = gamma2Link;
-        rho[j]    = rhoLink;
+        if(j<=t1/dt){//integrals of these quantities only defined up until recovery time
+            const double beta1Link = (K1*pathogen)/(pathogen+C);
+            const double beta2Link = (K2*pathogen)/(pathogen+C);
+            const double gamma1Link = (alpha1*antibody)/(pathogen+C1);
+            const double gamma2Link = (alpha2*antibody)/(pathogen+C1);
+            
+                          gamma1[j] = gamma1Link;
+                          gamma2[j] = gamma2Link;
+                          beta1[j]  = beta1Link;
+                          beta2[j]  = beta2Link;
+        }
+        
     }
 //vectors for between-host solution
-    vector<double> S(N,0.0);
-    S[0] = 100;
-    vector<vector<double> > I1(2,vector<double>(M,0.0));
-    vector<vector<double> > R(2,vector<double>(M,0.0));
-    vector<vector<double> > Ir(2,vector<double>(M,0.0));
-    vector<double> symptomaticIncidence (N,0.0);
-    vector<double> asymptomaticIncidence (N,0.0);
+    vector<double> S(simulationTime,0.0);
+    S[0] = 1000;
+    vector<vector<double> > I1(2,vector<double>(recoveryTime,0.0));
+    vector<vector<double> > R(2,vector<double>(waningTime,0.0));
+    vector<vector<double> > Ir(2,vector<double>(recoveryTime,0.0));
+    vector<double> symptomaticIncidence (simulationTime,0.0);
+    vector<double> asymptomaticIncidence (simulationTime,0.0);
 //initialize between-host compartments
-    I1[0][0] = 1;
-    symptomaticIncidence[0] = 1.0/101;
+    I1[0][0] = 100;
+    symptomaticIncidence[0] = I1[0][0]/110;
     obs_min = {0,symptomaticIncidence[0]};
     obs_max = {0,symptomaticIncidence[0]};
 
@@ -109,30 +122,31 @@ int main(int argc, char** argv){
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
 
-    for(unsigned int k=1; k<N; k++){//looping through time (rows)
+    for(unsigned int k=1; k<simulationTime; k++){//looping through time (rows)
         if (k % 1000 == 0) cerr << k << " " << obs_max.second - obs_min.second << " | " <<  obs_max.first << "," << obs_max.second << endl;
         //calculate the total population
         double I1pop = 0;
         double Rpop  = 0;
         double Irpop = 0;
-        for(unsigned int j = 0; j < M; j++){
+        for(unsigned int j = 0; j < recoveryTime; j++){
             I1pop += I1[0][j];
-            Rpop +=   R[0][j];
             Irpop += Ir[0][j];
+        }
+        for(unsigned int j = 0; j< waningTime; j++){
+            Rpop +=   R[0][j];
         }
         double totalPop = S[k-1] + I1pop + Rpop + Irpop;
         assert(totalPop>0);
         double intSum = 0;
         double intSum1 = 0;
-        for(unsigned int j=0; j<M; j++){//looping through time since infection (columns)
-            //linearize to get k-1 index
+        for(unsigned int j=0; j<recoveryTime; j++){
+            //linearize to get 0 index
             intSum  += dt * (beta1[j] * I1[0][j] + beta2[j] * Ir[0][j]);
             intSum1 += dt * (gamma1[j] * I1[0][j] + gamma2[j] * Ir[0][j]);
-            //intSum1,intsum get too large when N,M>20
         }
         S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);//
         double intSum2 =0;
-        for(unsigned int j=0; j<M; j++){//columns
+        for(unsigned int j=0; j<waningTime; j++){//columns
             if(j==0) {
                 R[1][j] = intSum1;//boundary condition
             } else {
@@ -141,7 +155,7 @@ int main(int argc, char** argv){
             intSum2+= dt*rho[j]*R[1][j];
         }
         double intSum3=0;
-        for(unsigned int j=0; j<M; j++){//columns
+        for(unsigned int j=0; j<recoveryTime; j++){//columns
             if(j==0) {
                 //boundary conditions
                 I1[1][j] = intSum*S[k]/totalPop;
@@ -155,8 +169,8 @@ int main(int argc, char** argv){
 
         const double sI = S[k]*intSum3/totalPop;
         symptomaticIncidence[k] = sI;
-
         asymptomaticIncidence[k] = (1.0/totalPop)*intSum2*intSum3;
+        myfile<<asymptomaticIncidence[k]<<" , ";
 
         // convergence bookkeeping
         if (sI >= obs_max.second) obs_max = {k, sI};       // update min and
@@ -197,14 +211,16 @@ int main(int argc, char** argv){
             }
         }
         // shift just calculated row, making space for next iteration
-        for(unsigned int j = 0; j < M; j++){
+        for(unsigned int j = 0; j < recoveryTime; j++){
             I1[0][j] = I1[1][j];
-            R[0][j]  = R[1][j];
             Ir[0][j] = Ir[1][j];
+        }
+        for(unsigned int j = 0; j < waningTime; j++){
+            R[0][j]  = R[1][j];
         }
   
      }
-
+    
 /*    cout<<"\nR vec size "<<R.size()<<"\n";
     for (auto v: R) { for (auto e: v) cout << e << " "; }
     cout<<"\nI1 vec size "<<I1.size()<<"\n";
@@ -215,8 +231,9 @@ int main(int argc, char** argv){
     for (auto e: S) { cout << e << " "; }*/
     //cout<<"\nsymptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
     //for (auto e: symptomaticIncidence) { cout << e << endl; }
-    for (auto e: asymptomaticIncidence) { cout << e << endl; }
+    //for (auto e: asymptomaticIncidence) { cout << e << endl; }
     //cout<<endl;
     cerr << "Converged at [" << obs_min.second << ", " << obs_max.second << "] after " << symptomaticIncidence.size() << " observations\n";
+    myfile.close();
     return 0;
 }
