@@ -1,10 +1,3 @@
-//
-//  PDE_Simulator.cpp
-//  
-//
-//  Created by Celeste on 10/1/17.
-//
-//
 #include "AbcSmc.h"
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_statistics_double.h>
@@ -12,8 +5,11 @@
 #include <unistd.h>
 #include <iostream>
 #include <math.h>
+#include <assert.h>
 #include <vector>
 #include <array>
+#include <deque>
+#include <fstream>
 //#include <gsl/gsl_odeiv2.h>
 //#include <gsl/gsl_math.h>
 //#include "SIR_H.h"
@@ -24,155 +20,224 @@ const gsl_rng* RNG = gsl_rng_alloc(gsl_rng_taus2);
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int serial, const ABC::MPI_par* mp) {
     
 //within-host parameters
-    double mu0 = 0.1841; //pathogen growth rate
-    double b0 = 1; //initial pathogen concentration
-    double y0 = 1; //initial antibody concentration
-    double y1 = pow(10,5);//peak antibody concentration
-    double t1 = 28; //duration of infection
-    double mu = (1/t1)*log(y1/y0); //antibody growth rate
-    double c = b0*((mu-mu0)/(y0*(exp((mu-mu0)*t1)-1))); //pathogen clearance rate
-    double r = args[0];//1.69; //immunity shape parameter
-    double nu = args[1];//1.41; //immunity waning rate
-    
-//between-host parameters
-    double K1 = 100; //I1 contact rate
-    double K2 = 50; //Ir contact rate
-    double alpha1 = 13; //I1 recovery parameter
-    double alpha2 = 31; //Ir recovery parameter
-    double omega = 0.2; //waning parameter
-    double C = 0.0001; //saturation constant
-    double delta = 0.02; //birth/death rate
-    double totalPop = 101; //total population size
-    
-//time parameters
-    double dt = 0.1; //time step
-    //N*M must be a perfect square
-    double N = 5; //delta t * N = final time of interest T (days)
-    double M = 5; //delta t * M = final time since infection tau (days)
-    double T = dt*N;
-    double tau = dt*M;
-    
+    const double mu0 = 0.1841; //pathogen growth rate
+    const double b0 = 1; //initial pathogen concentration
+    const double y0 = 1; //initial antibody concentration
+    const double y1 = pow(10,5);//peak antibody concentration
+    const double t1 = 28; //duration of infection (days)
+    const double mu = (1/t1)*log(y1/y0); //antibody growth rate
+    const double c = b0*((mu-mu0)/(y0*(exp((mu-mu0)*t1)-1))); //pathogen clearance rate
+    const double r = args[0];//1.69; //immunity shape parameter
+    const double nu = args[1];//1.41; //immunity waning rate
+    cerr << "r, nu: " << r << ", " << nu << endl;
 
-    
+//between-host parameters
+    const double K1 = (100/(double)365); //I1 daily contact rate
+    const double K2 = (50/(double)365); //Ir daily contact rate
+    const double alpha1 = (13/(double)365); //I1 daily recovery parameter
+    const double alpha2 = (31/(double)365); //Ir daily recovery parameter
+    const double omega = (0.2/(double)365); //daily waning parameter
+    const double C = 0.0001; //saturation constant
+    const double C1 = 0.0001; //constant for recovery functions
+    const double C2 = 0.0001; //constant for waning function
+    const double delta = (0.02/(double)365); //daily birth/death rate
+    //const double totalPop = 101; //total population size
+
+//time parameters
+    const double dt = 0.01; //time step
+    const unsigned int simulationTimeSteps = 2000/dt; //delta t * simulationTimeSteps = final time of interest T (days)
+    const unsigned int recoveryTimeSteps = 28/dt; //delta t * recoveryTimeSteps = final infectious time of interest
+    //recoveryTimeSteps needs to be <= t1 (ideally this is t1)
+    const unsigned int waningTimeSteps = 1825/dt; //delta t * waningTimeSteps = final waning time of interest
+    const unsigned int withinHostTimeSteps = recoveryTimeSteps + waningTimeSteps; //delta t * withinHostTimeSteps = final time since infection tau (days)
+
+//convergence parameters
+    const double epsilon = 0.01;
+    const unsigned int eq_interval = 1095/dt;
+    pair<unsigned int, double> obs_min;
+    pair<unsigned int, double> obs_max;
+    deque<double> obs_deque;
+    //const double T = dt*N;
+    //const double tau = dt*M;
+
 //vectors for linking functions
-    vector<double> beta1;
-    vector<double> beta2;
-    vector<double> gamma1;
-    vector<double> gamma2;
-    vector<double> rho;
+    vector<double>  beta1(recoveryTimeSteps,0.0);
+    vector<double>  beta2(recoveryTimeSteps,0.0);
+    vector<double> gamma1(recoveryTimeSteps,0.0);
+    vector<double> gamma2(recoveryTimeSteps,0.0);
+    vector<double>    rho(waningTimeSteps,0.0);
     
+    int rhoCounter = 0;
 //vectors for within-host solution
-    vector<double> pathogen;
-    vector<double> antibody;
-    for(double i = 0; i<tau;i = i+ dt){
-        double b;
-        double y;
-        if(i<=t1){
-            b = b0*exp(mu0*i) - (c*y0*(exp(mu*i)-exp(mu0*i))/(mu-mu0));
-            y = y0*exp(mu*i);
+//Construct linking functions
+    for (unsigned int j = 0; j < withinHostTimeSteps; ++j) {
+        const double t = dt*j;
+        double pathogen;
+        double antibody;
+        if(t<=t1){
+            pathogen = b0*exp(mu0*t) - (c*y0*(exp(mu*t)-exp(mu0*t))/(mu-mu0));
+            antibody = y0*exp(mu*t);
         }
         else{
-            b = 0;
-            y = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(i-t1)),-(1/(r-1)));
+            pathogen = 0;
+            antibody = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(t-t1)),-(1/(r-1)));
         }
-        pathogen.push_back(b);
-        antibody.push_back(y);
-    }
 
-//Construct linking functions
-    for(unsigned int j =0; j<pathogen.size();j++){
-        double beta1Link = (K1*pathogen[j])/(pathogen[j]+C);
-        double beta2Link = (K2*pathogen[j])/(pathogen[j]+C);
-        double gamma1Link = (alpha1*antibody[j])/(pathogen[j]+C);
-        double gamma2Link = (alpha2*antibody[j])/(pathogen[j]+C);
-        double rhoLink = omega/(antibody[j]+C);
+        if(j<=t1/dt){//integrals of these quantities only defined up until recovery time
+            const double beta1Link = (K1*pathogen)/(pathogen+C);
+            const double beta2Link = (K2*pathogen)/(pathogen+C);
+            const double gamma1Link = (alpha1*antibody)/(pathogen+C1);
+            const double gamma2Link = (alpha2*antibody)/(pathogen+C1);
+            
+                          gamma1[j] = gamma1Link;
+                          gamma2[j] = gamma2Link;
+                          beta1[j]  = beta1Link;
+                          beta2[j]  = beta2Link;
+        }
         
-        beta1.push_back(beta1Link);
-        beta2.push_back(beta2Link);
-        gamma1.push_back(gamma1Link);
-        gamma2.push_back(gamma2Link);
-        rho.push_back(rhoLink);
+        else{//only keeps track of waning rate during waning period
+            rhoCounter = j - recoveryTimeSteps-1;
+            const double rhoLink = omega/(antibody+C2);
+            
+            rho[rhoCounter] = rhoLink;
+        }
+        
     }
-//vectors for between-host solution
-    vector<double> S(N);
-    vector<double> I1(N*M);
-    vector<double> R(N*M);
-    vector<double> Ir(N*M);
-    vector<double> symptomaticIncidence (N);
-//initialize between-host compartments
-    S[0] = 100;
-    for(int i = 0; i<N;i++){
-        I1[i] = 1;
-        R[i] = 0;
-        Ir[i] = 0;
-    }
-    symptomaticIncidence[0] = 1;
 
+//vectors for between-host solution
+    cerr << "sT: " << simulationTimeSteps << "\n";
+    vector<double> S(simulationTimeSteps,0.0);
+    cerr << "b\n";
+    S[0] = 1000;
+    //myfile2<<S[0]<<" , ";
+    vector<vector<double> > I1(2,vector<double>(recoveryTimeSteps,0.0));
+    vector<vector<double> > R(2,vector<double>(waningTimeSteps,0.0));
+    vector<vector<double> > Ir(2,vector<double>(recoveryTimeSteps,0.0));
+    vector<double> symptomaticIncidence (simulationTimeSteps,0.0);
+    vector<double> asymptomaticIncidence (simulationTimeSteps,0.0);
+//initialize between-host compartments
+    I1[0][0] = 100;
+    symptomaticIncidence[0] = I1[0][0]/110;
+    obs_min = {0,symptomaticIncidence[0]};
+    obs_max = {0,symptomaticIncidence[0]};
+    /*for(unsigned int j = 0; j < recoveryTimeSteps; j++){
+        myfile<<Ir[0][j]<<" , ";
+        myfile1<<I1[0][j]<<" , ";
+    }
+    for(unsigned int j = 0; j < waningTimeSteps; j++){
+        myfile3<<R[0][j]<<" , ";
+    }
+    myfile<<"\n";
+    myfile1<<"\n";
+    myfile3<<"\n";*/
 //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
-    
-    for(int k=0; k<(N-1); k++){//looping through time
+
+    for(unsigned int k=1; k<simulationTimeSteps; k++){//looping through time (rows)
+        if (k % 1000 == 0) cerr << k << " " << obs_max.second - obs_min.second << " | " <<  obs_max.first << "," << obs_max.second << endl;
+        //calculate the total population
+        double I1pop = 0;
+        double Rpop  = 0;
+        double Irpop = 0;
+        for(unsigned int j = 0; j < recoveryTimeSteps; j++){
+            I1pop += I1[0][j];
+            Irpop += Ir[0][j];
+        }
+        for(unsigned int j = 0; j< waningTimeSteps; j++){
+            Rpop +=   R[0][j];
+        }
+        double totalPop = S[k-1] + I1pop + Rpop + Irpop;
+        assert(totalPop>0);
         double intSum = 0;
         double intSum1 = 0;
-        for(int s=0; s<M; s++){
-            intSum += dt*(beta1[s]*I1[sqrt(I1.size())*k+s] + beta2[s]*Ir[sqrt(Ir.size())*k+s]);
-            intSum1 += dt*(gamma1[s]*I1[sqrt(I1.size())*k+s]+gamma2[s]*Ir[sqrt(Ir.size())*k+s]);
-            //intSum1,intsum get too large when N,M>20
+        for(unsigned int j=0; j<recoveryTimeSteps; j++){
+            //linearize to get 0 index
+            intSum  += dt * (beta1[j] * I1[0][j] + beta2[j] * Ir[0][j]);
+            intSum1 += dt * (gamma1[j] * I1[0][j] + gamma2[j] * Ir[0][j]);
         }
-        
-        S[k+1] = (S[k] + dt*delta*totalPop)/(1+dt*intSum*(1/totalPop)+dt*delta);
-        
+        S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);
+        //myfile2<<S[k]<<" , ";
         double intSum2 =0;
-        for(int j=0; j<M; j++){
-            if(j==0){
-                R[(sqrt(R.size())*(k+1))+j] = intSum1;//boundary condition
+        for(unsigned int j=0; j<waningTimeSteps; j++){//columns
+            if(j==0) {
+                R[1][j] = intSum1;//boundary condition
+            } else {
+                R[1][j] = R[0][j-1]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
             }
-            R[(sqrt(R.size())*(k+1))+(j+1)] = R[k+j]/(1 + dt*((rho[j+1]/totalPop)*intSum+delta));
-            intSum2+= dt*rho[j]*R[(sqrt(R.size())*(k+1))+j];
+            //myfile3<<R[1][j]<<" , ";
+            intSum2+= dt*rho[j]*R[1][j];
         }
         double intSum3=0;
-        for(int j=0; j<M; j++){
-            if(j==0){
+        for(unsigned int j=0; j<recoveryTimeSteps; j++){//columns
+            if(j==0) {
                 //boundary conditions
-                I1[(sqrt(I1.size())*(k+1))+j] = intSum*S[k+1]/totalPop;
-                Ir[(sqrt(Ir.size())*(k+1))+j] = (1/totalPop)*intSum2*intSum;
+                I1[1][j] = intSum*S[k]/totalPop;
+                Ir[1][j] = (1.0/totalPop)*intSum2*intSum;
+            } else {
+                I1[1][j] = I1[0][j-1]/(1+dt*(gamma1[j]+delta));
+                Ir[1][j] = Ir[0][j-1]/(1+dt*(gamma2[j]+delta));
             }
-            
-            I1[(sqrt(I1.size())*(k+1))+(j+1)] = I1[(sqrt(I1.size())*k)+j]/(1+dt*(gamma1[j+1]+delta));
-            Ir[(sqrt(Ir.size())*(k+1))+(j+1)] = Ir[(sqrt(Ir.size())*k)+j]/(1+dt*(gamma2[j+1]+delta));
-            intSum3 += dt*(beta1[j]*I1[(sqrt(I1.size())*k)+j]+beta2[j]*Ir[(sqrt(Ir.size())*k)+j]);
-            
+            //myfile<<Ir[1][j]<<" , ";
+            //myfile1<<I1[1][j]<<" , ";
+            intSum3 += dt*(beta1[j]*I1[0][j]+beta2[j]*Ir[0][j]);
         }
+        /*myfile<<"\n";
+        myfile1<<"\n";
+        myfile3<<"\n";*/
+        const double sI = S[k]*intSum3/totalPop;
+        symptomaticIncidence[k] = sI;
+        asymptomaticIncidence[k] = (1.0/totalPop)*intSum2*intSum3;
         
-        symptomaticIncidence[k+1] = S[k+1]*intSum3/totalPop;
+
+        // convergence bookkeeping
+        if (sI >= obs_max.second) obs_max = {k, sI};       // update min and
+        if (sI <= obs_min.second) obs_min = {k, sI};       // max obs if necessary
+        if (k<eq_interval) {
+            // haven't generated enough data yet to know whether we've converged
+            obs_deque.push_back(sI);
+        } else {
+            // have enough data; update min, max as needed and break if max-min < epsilon
+            obs_deque.pop_front();
+            if (obs_max.first == k - eq_interval) {        // max val is old--need to find a new one
+                int offset = eq_interval - 1;
+                obs_max = {k - offset, obs_deque.front()}; // forced update
+                for (auto e: obs_deque) {                  // scan for a better max
+                    if (obs_max.second < e) {
+                        obs_max = {k-offset,e};
+                    }
+                    --offset;
+                }
+            } else if (obs_min.first == k - eq_interval) { // min val is old--need to find a new one
+                int offset = eq_interval - 1;
+                obs_min = {k - offset, obs_deque.front()}; // foced update
+                for (auto e: obs_deque) {                  // scan for a better min
+                    if (obs_min.second > e) {
+                        obs_min = {k-offset,e};
+                    }
+                    --offset;
+                }
+            }
+            if (obs_max.second - obs_min.second < epsilon) {
+                // woohoo!
+                symptomaticIncidence.resize(k+1);
+                asymptomaticIncidence.resize(k+1);
+                break;
+            } else {
+                // aww ...
+                obs_deque.push_back(sI);
+            }
         }
-    /*cout<<"\n R vec\n";
-    cout<<"R vec size "<<R.size()<<"\n";
-    for(unsigned int i =0; i<R.size();i++){
-        cout<<R[i]<<" ";
-    }
-    cout<<"\n I1 vec\n";
-    cout<<"I1 vec size "<<I1.size()<<"\n";
-    for(unsigned int i =0; i<I1.size();i++){
-        cout<<I1[i]<<" ";
-    }
-    cout<<"\n Ir vec\n";
-    cout<<"Ir vec size "<<Ir.size()<<"\n";
-    for(unsigned int i =0; i<Ir.size();i++){
-        cout<<Ir[i]<<" ";
-    }
-    cout<<"\n S vec\n";
-    cout<<"S vec size "<<S.size()<<"\n";
-    for(unsigned int i =0; i<S.size();i++){
-        cout<<S[i]<<" ";
-    }
-    cout<<"\n symptomatic incidence\n";
-    cout<<"symptomatic incdience size "<<symptomaticIncidence.size()<<"\n";
-    for(unsigned int i =0; i<symptomaticIncidence.size();i++){
-        cout<<symptomaticIncidence[i]<<" ";
-    }
-    cout<<"endl";*/
+        // shift just calculated row, making space for next iteration
+        for(unsigned int j = 0; j < recoveryTimeSteps; j++){
+            I1[0][j] = I1[1][j];
+            Ir[0][j] = Ir[1][j];
+        }
+        for(unsigned int j = 0; j < waningTimeSteps; j++){
+            R[0][j]  = R[1][j];
+        }
+  
+     }
     vector<double> metrics = {365*symptomaticIncidence.back()};
     return metrics;
 }

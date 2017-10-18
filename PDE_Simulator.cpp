@@ -13,7 +13,7 @@ using namespace std;
 
 void usage() {
 
-   cerr << "\n\tUsage: ./pde <max_simulationTime> <recoveryTime> <waningTime> <equilibrium_epsilon> <equilibrium_window>\n\n";
+   cerr << "\n\tUsage: ./pde <max_simulationTimeSteps> <recoveryTimeSteps> <waningTimeSteps> <equilibrium_epsilon> <equilibrium_window>\n\n";
    exit(-1);
 
 }
@@ -54,15 +54,15 @@ int main(int argc, char** argv){
 
 //time parameters
     const double dt = 0.01; //time step
-    const unsigned int simulationTime = atoi(argv[1]); //delta t * simulationTime = final time of interest T (days)
-    const unsigned int recoveryTime = atoi(argv[2]); //delta t * recoveryTime = final infectious time of interest
-    //recoveryTime needs to be <= t1 (ideally this is t1)
-    const unsigned int waningTime = atoi(argv[3]); //delta t * waningTime = final waning time of interest
-    const unsigned int withinHostTime = recoveryTime + waningTime; //delta t * withinHostTime = final time since infection tau (days)
+    const unsigned int simulationTimeSteps = atoi(argv[1])/dt; //delta t * simulationTimeSteps = final time of interest T (days)
+    const unsigned int recoveryTimeSteps = atoi(argv[2])/dt; //delta t * recoveryTimeSteps = final infectious time of interest
+    //recoveryTimeSteps needs to be <= t1 (ideally this is t1)
+    const unsigned int waningTimeSteps = atoi(argv[3])/dt; //delta t * waningTimeSteps = final waning time of interest
+    const unsigned int withinHostTimeSteps = recoveryTimeSteps + waningTimeSteps; //delta t * withinHostTimeSteps = final time since infection tau (days)
 
 //convergence parameters
     const double epsilon = atof(argv[4]);
-    const unsigned int eq_interval = atoi(argv[5]);
+    const unsigned int eq_interval = atoi(argv[5])/dt;
     pair<unsigned int, double> obs_min;
     pair<unsigned int, double> obs_max;
     deque<double> obs_deque;
@@ -70,16 +70,16 @@ int main(int argc, char** argv){
     //const double tau = dt*M;
 
 //vectors for linking functions
-    vector<double>  beta1(recoveryTime,0.0);
-    vector<double>  beta2(recoveryTime,0.0);
-    vector<double> gamma1(recoveryTime,0.0);
-    vector<double> gamma2(recoveryTime,0.0);
-    vector<double>    rho(waningTime,0.0);
+    vector<double>  beta1(recoveryTimeSteps,0.0);
+    vector<double>  beta2(recoveryTimeSteps,0.0);
+    vector<double> gamma1(recoveryTimeSteps,0.0);
+    vector<double> gamma2(recoveryTimeSteps,0.0);
+    vector<double>    rho(waningTimeSteps,0.0);
     
     int rhoCounter = 0;
 //vectors for within-host solution
 //Construct linking functions
-    for (unsigned int j = 0; j < withinHostTime; ++j) {
+    for (unsigned int j = 0; j < withinHostTimeSteps; ++j) {
         const double t = dt*j;
         double pathogen;
         double antibody;
@@ -105,7 +105,7 @@ int main(int argc, char** argv){
         }
         
         else{//only keeps track of waning rate during waning period
-            rhoCounter = j - recoveryTime-1;
+            rhoCounter = j - recoveryTimeSteps-1;
             const double rhoLink = omega/(antibody+C2);
             
             rho[rhoCounter] = rhoLink;
@@ -114,24 +114,26 @@ int main(int argc, char** argv){
     }
 
 //vectors for between-host solution
-    vector<double> S(simulationTime,0.0);
+    cerr << "sT: " << simulationTimeSteps << "\n";
+    vector<double> S(simulationTimeSteps,0.0);
+    cerr << "b\n";
     S[0] = 1000;
     //myfile2<<S[0]<<" , ";
-    vector<vector<double> > I1(2,vector<double>(recoveryTime,0.0));
-    vector<vector<double> > R(2,vector<double>(waningTime,0.0));
-    vector<vector<double> > Ir(2,vector<double>(recoveryTime,0.0));
-    vector<double> symptomaticIncidence (simulationTime,0.0);
-    vector<double> asymptomaticIncidence (simulationTime,0.0);
+    vector<vector<double> > I1(2,vector<double>(recoveryTimeSteps,0.0));
+    vector<vector<double> > R(2,vector<double>(waningTimeSteps,0.0));
+    vector<vector<double> > Ir(2,vector<double>(recoveryTimeSteps,0.0));
+    vector<double> symptomaticIncidence (simulationTimeSteps,0.0);
+    vector<double> asymptomaticIncidence (simulationTimeSteps,0.0);
 //initialize between-host compartments
     I1[0][0] = 100;
     symptomaticIncidence[0] = I1[0][0]/110;
     obs_min = {0,symptomaticIncidence[0]};
     obs_max = {0,symptomaticIncidence[0]};
-    /*for(unsigned int j = 0; j < recoveryTime; j++){
+    /*for(unsigned int j = 0; j < recoveryTimeSteps; j++){
         myfile<<Ir[0][j]<<" , ";
         myfile1<<I1[0][j]<<" , ";
     }
-    for(unsigned int j = 0; j < waningTime; j++){
+    for(unsigned int j = 0; j < waningTimeSteps; j++){
         myfile3<<R[0][j]<<" , ";
     }
     myfile<<"\n";
@@ -141,24 +143,24 @@ int main(int argc, char** argv){
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
 
-    for(unsigned int k=1; k<simulationTime; k++){//looping through time (rows)
+    for(unsigned int k=1; k<simulationTimeSteps; k++){//looping through time (rows)
         if (k % 1000 == 0) cerr << k << " " << obs_max.second - obs_min.second << " | " <<  obs_max.first << "," << obs_max.second << endl;
         //calculate the total population
         double I1pop = 0;
         double Rpop  = 0;
         double Irpop = 0;
-        for(unsigned int j = 0; j < recoveryTime; j++){
+        for(unsigned int j = 0; j < recoveryTimeSteps; j++){
             I1pop += I1[0][j];
             Irpop += Ir[0][j];
         }
-        for(unsigned int j = 0; j< waningTime; j++){
+        for(unsigned int j = 0; j< waningTimeSteps; j++){
             Rpop +=   R[0][j];
         }
         double totalPop = S[k-1] + I1pop + Rpop + Irpop;
         assert(totalPop>0);
         double intSum = 0;
         double intSum1 = 0;
-        for(unsigned int j=0; j<recoveryTime; j++){
+        for(unsigned int j=0; j<recoveryTimeSteps; j++){
             //linearize to get 0 index
             intSum  += dt * (beta1[j] * I1[0][j] + beta2[j] * Ir[0][j]);
             intSum1 += dt * (gamma1[j] * I1[0][j] + gamma2[j] * Ir[0][j]);
@@ -166,7 +168,7 @@ int main(int argc, char** argv){
         S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);
         //myfile2<<S[k]<<" , ";
         double intSum2 =0;
-        for(unsigned int j=0; j<waningTime; j++){//columns
+        for(unsigned int j=0; j<waningTimeSteps; j++){//columns
             if(j==0) {
                 R[1][j] = intSum1;//boundary condition
             } else {
@@ -176,7 +178,7 @@ int main(int argc, char** argv){
             intSum2+= dt*rho[j]*R[1][j];
         }
         double intSum3=0;
-        for(unsigned int j=0; j<recoveryTime; j++){//columns
+        for(unsigned int j=0; j<recoveryTimeSteps; j++){//columns
             if(j==0) {
                 //boundary conditions
                 I1[1][j] = intSum*S[k]/totalPop;
@@ -236,11 +238,11 @@ int main(int argc, char** argv){
             }
         }
         // shift just calculated row, making space for next iteration
-        for(unsigned int j = 0; j < recoveryTime; j++){
+        for(unsigned int j = 0; j < recoveryTimeSteps; j++){
             I1[0][j] = I1[1][j];
             Ir[0][j] = Ir[1][j];
         }
-        for(unsigned int j = 0; j < waningTime; j++){
+        for(unsigned int j = 0; j < waningTimeSteps; j++){
             R[0][j]  = R[1][j];
         }
   
