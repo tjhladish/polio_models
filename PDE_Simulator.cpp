@@ -13,16 +13,22 @@ using namespace std;
 
 void usage() {
 
-   cerr << "\n\tUsage: ./pde <max_simulationTime> <withinHostTime> <recoveryTime> <waningTime> <equilibrium_epsilon> <equilibrium_window>\n\n";
+   cerr << "\n\tUsage: ./pde <max_simulationTime> <recoveryTime> <waningTime> <equilibrium_epsilon> <equilibrium_window>\n\n";
    exit(-1);
 
 }
 
 int main(int argc, char** argv){
 
-    if (argc!=7) usage();
-    ofstream myfile;
-    myfile.open("/Users/Celeste/Desktop/pde_test_asymp.csv");
+    if (argc!=6) usage();
+    /*ofstream myfile;
+    ofstream myfile1;
+    ofstream myfile2;
+    ofstream myfile3;
+    myfile.open("/Users/Celeste/Desktop/pde_test_Ir.csv");
+    myfile1.open("/Users/Celeste/Desktop/pde_test_I1.csv");
+    myfile2.open("/Users/Celeste/Desktop/pde_test_S.csv");
+    myfile3.open("/Users/Celeste/Desktop/pde_test_R.csv");*/
 //within-host parameters
     const double mu0 = 0.1841; //pathogen growth rate
     const double b0 = 1; //initial pathogen concentration
@@ -49,14 +55,14 @@ int main(int argc, char** argv){
 //time parameters
     const double dt = 0.01; //time step
     const unsigned int simulationTime = atoi(argv[1]); //delta t * simulationTime = final time of interest T (days)
-    const unsigned int withinHostTime = atoi(argv[2]); //delta t * withinHostTime = final time since infection tau (days)
-    const unsigned int recoveryTime = atoi(argv[3]); //delta t * recoveryTime = final infectious time of interest
+    const unsigned int recoveryTime = atoi(argv[2]); //delta t * recoveryTime = final infectious time of interest
     //recoveryTime needs to be <= t1 (ideally this is t1)
-    const unsigned int waningTime = atoi(argv[4]); //delta t * waningTime = final waning time of interest
+    const unsigned int waningTime = atoi(argv[3]); //delta t * waningTime = final waning time of interest
+    const unsigned int withinHostTime = recoveryTime + waningTime; //delta t * withinHostTime = final time since infection tau (days)
 
 //convergence parameters
-    const double epsilon = atof(argv[5]);
-    const unsigned int eq_interval = atoi(argv[6]);
+    const double epsilon = atof(argv[4]);
+    const unsigned int eq_interval = atoi(argv[5]);
     pair<unsigned int, double> obs_min;
     pair<unsigned int, double> obs_max;
     deque<double> obs_deque;
@@ -69,7 +75,8 @@ int main(int argc, char** argv){
     vector<double> gamma1(recoveryTime,0.0);
     vector<double> gamma2(recoveryTime,0.0);
     vector<double>    rho(waningTime,0.0);
-
+    
+    int rhoCounter = 0;
 //vectors for within-host solution
 //Construct linking functions
     for (unsigned int j = 0; j < withinHostTime; ++j) {
@@ -85,12 +92,6 @@ int main(int argc, char** argv){
             antibody = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(t-t1)),-(1/(r-1)));
         }
 
-        
-        if(j>(t1/dt)){//only keeps track of waning rate during waning period
-            const double rhoLink = omega/(antibody+C2);
-            
-                          rho[j] = rhoLink;
-        }
         if(j<=t1/dt){//integrals of these quantities only defined up until recovery time
             const double beta1Link = (K1*pathogen)/(pathogen+C);
             const double beta2Link = (K2*pathogen)/(pathogen+C);
@@ -103,10 +104,19 @@ int main(int argc, char** argv){
                           beta2[j]  = beta2Link;
         }
         
+        else{//only keeps track of waning rate during waning period
+            rhoCounter = j - recoveryTime-1;
+            const double rhoLink = omega/(antibody+C2);
+            
+            rho[rhoCounter] = rhoLink;
+        }
+        
     }
+
 //vectors for between-host solution
     vector<double> S(simulationTime,0.0);
     S[0] = 1000;
+    //myfile2<<S[0]<<" , ";
     vector<vector<double> > I1(2,vector<double>(recoveryTime,0.0));
     vector<vector<double> > R(2,vector<double>(waningTime,0.0));
     vector<vector<double> > Ir(2,vector<double>(recoveryTime,0.0));
@@ -117,7 +127,16 @@ int main(int argc, char** argv){
     symptomaticIncidence[0] = I1[0][0]/110;
     obs_min = {0,symptomaticIncidence[0]};
     obs_max = {0,symptomaticIncidence[0]};
-
+    /*for(unsigned int j = 0; j < recoveryTime; j++){
+        myfile<<Ir[0][j]<<" , ";
+        myfile1<<I1[0][j]<<" , ";
+    }
+    for(unsigned int j = 0; j < waningTime; j++){
+        myfile3<<R[0][j]<<" , ";
+    }
+    myfile<<"\n";
+    myfile1<<"\n";
+    myfile3<<"\n";*/
 //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
@@ -144,7 +163,8 @@ int main(int argc, char** argv){
             intSum  += dt * (beta1[j] * I1[0][j] + beta2[j] * Ir[0][j]);
             intSum1 += dt * (gamma1[j] * I1[0][j] + gamma2[j] * Ir[0][j]);
         }
-        S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);//
+        S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*intSum*(1.0/totalPop)+dt*delta);
+        //myfile2<<S[k]<<" , ";
         double intSum2 =0;
         for(unsigned int j=0; j<waningTime; j++){//columns
             if(j==0) {
@@ -152,6 +172,7 @@ int main(int argc, char** argv){
             } else {
                 R[1][j] = R[0][j-1]/(1 + dt*((rho[j]/totalPop)*intSum+delta));
             }
+            //myfile3<<R[1][j]<<" , ";
             intSum2+= dt*rho[j]*R[1][j];
         }
         double intSum3=0;
@@ -164,13 +185,17 @@ int main(int argc, char** argv){
                 I1[1][j] = I1[0][j-1]/(1+dt*(gamma1[j]+delta));
                 Ir[1][j] = Ir[0][j-1]/(1+dt*(gamma2[j]+delta));
             }
+            //myfile<<Ir[1][j]<<" , ";
+            //myfile1<<I1[1][j]<<" , ";
             intSum3 += dt*(beta1[j]*I1[0][j]+beta2[j]*Ir[0][j]);
         }
-
+        /*myfile<<"\n";
+        myfile1<<"\n";
+        myfile3<<"\n";*/
         const double sI = S[k]*intSum3/totalPop;
         symptomaticIncidence[k] = sI;
         asymptomaticIncidence[k] = (1.0/totalPop)*intSum2*intSum3;
-        myfile<<asymptomaticIncidence[k]<<" , ";
+        
 
         // convergence bookkeeping
         if (sI >= obs_max.second) obs_max = {k, sI};       // update min and
@@ -234,6 +259,9 @@ int main(int argc, char** argv){
     //for (auto e: asymptomaticIncidence) { cout << e << endl; }
     //cout<<endl;
     cerr << "Converged at [" << obs_min.second << ", " << obs_max.second << "] after " << symptomaticIncidence.size() << " observations\n";
-    myfile.close();
+    /*myfile.close();
+    myfile1.close();
+    myfile2.close();
+    myfile3.close();*/
     return 0;
 }
