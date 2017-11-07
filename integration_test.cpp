@@ -24,18 +24,18 @@ struct f_params {
     double b0=1;
     double mu=0.318;
     double mu0=.16;
-    double c=0.01;
     double K=0.001;
     double delta=0.02;
-    double contactRate1 =1;
-    double contactRate2 = 1;
-    double recover1=13/365;
-    double recover2=1;
-    double waneRate=1;
+    double contactRate1 =135.0/365;
+    double contactRate2 = 100.0/365;
+    double recover1=13.0/365;
+    double recover2=31.0/365;
+    double waneRate=0.02/365;
     double y1=10;
     double r=1.49;
     double nu=1.69;
     double t1=28;
+    double c = b0*(mu-mu0)/(y0*(exp((mu-mu0)*t1)-1));
     double popSize = 10;
     double T = 28;//infectivity time
     double S = 120; //susceptiblility time
@@ -253,7 +253,7 @@ double integ_gamma2pi3(const double tau) {
 }
 
 
-/*double integ_R0(const double tau) {
+double integ_R0(const double tau) {
     f_params params;
 
     gsl_function F;
@@ -277,7 +277,7 @@ double integ_gamma2pi3(const double tau) {
             &error,
             &neval);
     return result;
-}*/
+}
 
 
 double integ_pi1(const double tau) {
@@ -364,7 +364,7 @@ double integ_pi3(const double tau) {
 int main(void) {
     const double step = 1.0;
     for (double tau_max = 0; tau_max < 28; tau_max += step){
-        double result = integ_pi1(tau_max);
+        double result = integ_pi2(tau_max);
         //double result = integ_eqIr(tau);
         cout << "tau, Result " << tau_max << ", " << result << endl;
 
