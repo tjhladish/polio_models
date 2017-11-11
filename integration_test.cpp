@@ -96,12 +96,9 @@ double pi2(double tau, void *params){
     
     //below is the integration of the correct taylor series polynomial for the waning function with constant in the denominator (constant prevents the function from being undefined)...since I am only taking the taylor poly up to the second derivative, the best the accuracy can be is O(step size)^2 (big O notation). I'm breaking it up into terms of the eqn so its easier to read
     
-    //double firstTerm = p.mu*p.waneRate*(R0(p.T,&p)-1)*tau/(p.y1+p.K);
-    double firstTerm = p.mu*p.waneRate*(5-1)*tau/(p.y1+p.K);
-    //double secondTerm = p.mu*p.waneRate*(R0(p.T,&p)-1)*pow(p.y1,p.r)*p.nu*pow(tau,2)/(2*pow(p.y1+p.K,2));
-    double secondTerm = p.mu*p.waneRate*(5-1)*pow(p.y1,p.r)*p.nu*pow(tau,2)/(2*pow(p.y1+p.K,2));
-    //double thirdTerm = p.mu*p.waneRate*(R0(p.T,&p)-1)*pow(p.y1,2*p.r-1)*pow(p.nu,2)*(2*p.y1-(p.r*(p.y1+p.K)))*pow(tau,3)/(3*2*pow(p.y1+p.K,3));
-    double thirdTerm = p.mu*p.waneRate*(5-1)*pow(p.y1,2*p.r-1)*pow(p.nu,2)*(2*p.y1-(p.r*(p.y1+p.K)))*pow(tau,3)/(3*2*pow(p.y1+p.K,3));
+    double firstTerm = p.mu*p.waneRate*(R0(p.T,&p)-1)*tau/(p.y1+p.K);
+    double secondTerm = p.mu*p.waneRate*(R0(p.T,&p)-1)*pow(p.y1,p.r)*p.nu*pow(tau,2)/(2*pow(p.y1+p.K,2));
+    double thirdTerm = p.mu*p.waneRate*(R0(p.T,&p)-1)*pow(p.y1,2*p.r-1)*pow(p.nu,2)*(2*p.y1-(p.r*(p.y1+p.K)))*pow(tau,3)/(3*2*pow(p.y1+p.K,3));
     //fourthTerm not derived using taylor series since we only need to integrate the constant mu
     double fourthTerm = p.mu*tau;
 
