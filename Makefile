@@ -31,5 +31,11 @@ pde_abc: libabc PDE_Simulator_abc.cpp
 libabc:
 	$(MAKE) -C $(ABCDIR) -f Makefile
 
+polio_boxcar: Polio_boxcar_simulator.cpp Polio_boxcar_model.h DIFFEQ_SIM.h Polio_boxcar_parameters.h
+	g++ $(FLAGS) $(INCLUDE) Polio_boxcar_simulator.cpp -o polio_boxcar $(GSL_LIB)
+
+polio_boxcar_cel: Polio_boxcar_simulator.cpp Polio_boxcar_model.h DIFFEQ_SIM.h Polio_boxcar_parameters.h
+	g++ $(FLAGS) Polio_boxcar_simulator.cpp -o polio_boxcar_cel -lgsl
+
 $(output_dir)/polio_data:
 	mkdir $@
