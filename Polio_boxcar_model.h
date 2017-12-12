@@ -36,11 +36,10 @@ private:
     const double r1;
     const double r2;
     const double r3;
-    const double r4;
     
 public:
-    Polio_boxcar_model() : mu(0.0), b1(0.0), b2(0.0),b3(0.0),b4(0.0), g1(0.0), g2(0.0), g3(0.0), g4(0.0), r1(0.0), r2(0.0), r3(0.0), r4(0.0) {nbins=9;}
-    Polio_boxcar_model(double bd, double infect1, double infect2, double infect3, double infect4, double rec1, double rec2, double rec3, double rec4, double wane1, double wane2, double wane3, double wane4): mu(bd), b1(infect1), b2(infect2), b3(infect3), b4(infect4), g1(rec1), g2(rec2), g3(rec3), g4(rec4), r1(wane1), r2(wane2), r3(wane3), r4(wane4) {nbins=9;}
+    Polio_boxcar_model() : mu(0.0), b1(0.0), b2(0.0),b3(0.0),b4(0.0), g1(0.0), g2(0.0), g3(0.0), g4(0.0), r1(0.0), r2(0.0), r3(0.0) {nbins=9;}
+    Polio_boxcar_model(double bd, double infect1, double infect2, double infect3, double infect4, double rec1, double rec2, double rec3, double rec4, double wane1, double wane2, double wane3): mu(bd), b1(infect1), b2(infect2), b3(infect3), b4(infect4), g1(rec1), g2(rec2), g3(rec3), g4(rec4), r1(wane1), r2(wane2), r3(wane3) {nbins=9;}
     ~Polio_boxcar_model() {};
     
     void initialize(double S, double I1, double I2, double I3, double I4, double R1, double R2, double R3, double R4) {
@@ -77,10 +76,10 @@ public:
         dxdt[2] = b2*x[5]*infectPop/(double)totalPop - (g2 + mu)*x[2];
         dxdt[3] = b3*x[6]*infectPop/(double)totalPop - (g3 + mu)*x[3];
         dxdt[4] = b4*x[7]*infectPop/(double)totalPop - (g4 + mu)*x[4];
-        dxdt[5] = g1*x[1] - (b2*infectPop/(double)totalPop + mu)*x[5] + r2*x[6];
-        dxdt[6] = g2*x[2] - (b3*infectPop/(double)totalPop + r2 + mu)*x[6] + r3*x[7];
-        dxdt[7] = g3*x[3] - (b4*infectPop/(double)totalPop + r3 + mu)*x[7] + r4*x[8];
-        dxdt[8] = g4*x[4] - (r4 + mu)*x[8];
+        dxdt[5] = g1*x[1] - (b2*infectPop/(double)totalPop + mu)*x[5] + r1*x[6];
+        dxdt[6] = g2*x[2] - (b3*infectPop/(double)totalPop + r1 + mu)*x[6] + r2*x[7];
+        dxdt[7] = g3*x[3] - (b4*infectPop/(double)totalPop + r2 + mu)*x[7] + r3*x[8];
+        dxdt[8] = g4*x[4] - (r3 + mu)*x[8];
         
     }
     void printX(){for(int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
