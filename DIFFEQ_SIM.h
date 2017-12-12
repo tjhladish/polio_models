@@ -61,8 +61,8 @@ public:
     int run_simulation() {
         gsl_odeiv_evolve*  e = gsl_odeiv_evolve_alloc(nbins);
         gsl_odeiv_control* c = gsl_odeiv_control_y_new(1e-10, 0);
-        gsl_odeiv_step*    s = gsl_odeiv_step_alloc(gsl_odeiv_step_rkf45, nbins);
-        gsl_odeiv_system sys = {function, NULL, nbins, this };
+        gsl_odeiv_step*    s = gsl_odeiv_step_alloc(gsl_odeiv_step_rkf45,nbins);
+        gsl_odeiv_system sys = {function, NULL, static_cast<size_t>(nbins), this };
         while (t < tmax) {  //convergence check here
             int status = gsl_odeiv_evolve_apply(e, c, s, &sys, &t, tmax, &h, x);
             if (status != GSL_SUCCESS) { return status; }
@@ -74,7 +74,7 @@ public:
         gsl_odeiv_evolve*  e = gsl_odeiv_evolve_alloc(nbins);
         gsl_odeiv_control* c = gsl_odeiv_control_y_new(1e-5, 0);
         gsl_odeiv_step*    s = gsl_odeiv_step_alloc(gsl_odeiv_step_rkf45, nbins);
-        gsl_odeiv_system sys = {function, NULL, nbins, this };
+        gsl_odeiv_system sys = {function, NULL, static_cast<size_t>(nbins), this };
         
         double tstop = t+stepsize;
         while (t < tstop) {
