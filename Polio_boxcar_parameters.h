@@ -14,9 +14,11 @@
 
 using namespace std;
 
-//parameters for use in Teunis model
 
 const int numComp = 4; //number of model compartments
+const double numContacts = 100; //per year
+
+//parameters for use in Teunis model
 
 const double mu = 0.2; //antibody growth rate
 array<double, numComp> intAnt = {1,10,100,1000}; //initial antibody concentration for S, R_1, R_2, R_3
