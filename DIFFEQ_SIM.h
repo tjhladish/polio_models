@@ -27,7 +27,7 @@ private:
 public:
     DiffEq_Sim() {
         t    = 0.0;      //initial time
-        h    = .1;     //time step
+        h    = 0.1;      //time step
         tmax = 100;
         hmin = 0.2;
     };

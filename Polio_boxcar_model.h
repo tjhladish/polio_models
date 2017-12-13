@@ -63,22 +63,22 @@ public:
         //x[3] -> I_3       x[8] -> R_4
         //x[4] -> I_4
         
-        int totalPop = 0;
-        int infectPop = 0;
+        double totalPop = 0;
+        double infectPop = 0;
         for(int i = 0; i < nbins; i++){
             totalPop += x[i];
             if(i >0 and i < 5){
                 infectPop += x[i];
             }
         }
-        dxdt[0] = mu*totalPop - (b1*infectPop/(double)totalPop + mu)*x[0];
-        dxdt[1] = b1*x[0]*infectPop/(double)totalPop - (g1 + mu)*x[1];
-        dxdt[2] = b2*x[5]*infectPop/(double)totalPop - (g2 + mu)*x[2];
-        dxdt[3] = b3*x[6]*infectPop/(double)totalPop - (g3 + mu)*x[3];
-        dxdt[4] = b4*x[7]*infectPop/(double)totalPop - (g4 + mu)*x[4];
-        dxdt[5] = g1*x[1] - (b2*infectPop/(double)totalPop + mu)*x[5] + r1*x[6];
-        dxdt[6] = g2*x[2] - (b3*infectPop/(double)totalPop + r1 + mu)*x[6] + r2*x[7];
-        dxdt[7] = g3*x[3] - (b4*infectPop/(double)totalPop + r2 + mu)*x[7] + r3*x[8];
+        dxdt[0] = mu*totalPop - (b1*infectPop/totalPop + mu)*x[0];
+        dxdt[1] = b1*x[0]*infectPop/totalPop - (g1 + mu)*x[1];
+        dxdt[2] = b2*x[5]*infectPop/totalPop - (g2 + mu)*x[2];
+        dxdt[3] = b3*x[6]*infectPop/totalPop - (g3 + mu)*x[3];
+        dxdt[4] = b4*x[7]*infectPop/totalPop - (g4 + mu)*x[4];
+        dxdt[5] = g1*x[1] - (b2*infectPop/totalPop + mu)*x[5] + r1*x[6];
+        dxdt[6] = g2*x[2] - (b3*infectPop/totalPop + r1 + mu)*x[6] + r2*x[7];
+        dxdt[7] = g3*x[3] - (b4*infectPop/totalPop + r2 + mu)*x[7] + r3*x[8];
         dxdt[8] = g4*x[4] - (r3 + mu)*x[8];
         
     }
