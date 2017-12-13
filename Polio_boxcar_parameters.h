@@ -24,7 +24,7 @@ array<double, numComp> peakAnt; //peak antibody concentration for S, R_1, R_2, R
 
 array<double, numComp> setPeakAnt(){ //10 fold boosting
     
-    for(int i = 0; i < peakAnt.size(); i++){
+    for(unsigned int i = 0; i < peakAnt.size(); i++){
         peakAnt[i] = intAnt[i]*11;
     }
     return peakAnt;
@@ -33,7 +33,7 @@ array<double, numComp> setPeakAnt(){ //10 fold boosting
 
 array<double,numComp> infectPeriod(){ //duration of infection for I_1, I_2, I_3, I_4 in days
     array<double,numComp> t1;
-    for(int i = 0; i < t1.size(); i++){
+    for(unsigned int i = 0; i < t1.size(); i++){
         t1[i] = (1.0/mu)*log(peakAnt[i]/intAnt[i]);
     }
     return t1;
