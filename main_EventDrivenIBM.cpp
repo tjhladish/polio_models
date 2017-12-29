@@ -33,21 +33,15 @@ int main(int argc, char** argv) {
     int deaths=0;
     int I1inf=0;
     int Irinf=0;
-    int recI1=0;
-    int recIr=0;
     int nums=0;
     int numi1=0;
     int numr=0;
-    int nump=0;
-    int numir=0;
-    int numi1e=0;
-    int numire=0;
     
     for(int i=0; i<numSims; i++) {
         EventDriven_MassAction_Sim sim(N,BETA,DEATH,maxRunTime,waningImmunity);
         sim.randomizePopulation(20);//this input is number of initially infecteds...make this a command line input variable?
         sim.runSimulation();
-        for(int k=0;k<sim.printVectorIDC().size();k++){
+        for(unsigned int k=0;k<sim.printVectorIDC().size();k++){
         myfile4 << sim.printVectorIDC()[k] << " , ";
         myfile5 << sim.printVectorNonInf()[k] << " , ";
         myfile6 << sim.printVectorIE()[k]  << " , ";
