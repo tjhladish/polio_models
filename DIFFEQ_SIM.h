@@ -23,6 +23,7 @@ private:
     double h;      //time step
     double tmax;   //max time
     double hmin;
+    double erTol = 1e-10;
     
 public:
     DiffEq_Sim() {
@@ -34,10 +35,11 @@ public:
     
     ~DiffEq_Sim() {};
     
-    int nbins;
+    unsigned int nbins;
     double* x;
+    //double* r;
     
-    void printX() { for(int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
+    void printX() { for(unsigned int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
     
     vector<double> get_state() {
         vector<double> C;
@@ -60,7 +62,7 @@ public:
     
     int run_simulation() {
         gsl_odeiv_evolve*  e = gsl_odeiv_evolve_alloc(nbins);
-        gsl_odeiv_control* c = gsl_odeiv_control_y_new(1e-10, 0);
+        gsl_odeiv_control* c = gsl_odeiv_control_y_new(erTol, 0);
         gsl_odeiv_step*    s = gsl_odeiv_step_alloc(gsl_odeiv_step_rkf45,nbins);
         gsl_odeiv_system sys = {function, NULL, static_cast<size_t>(nbins), this };
         while (t < tmax) {  //convergence check here
@@ -72,9 +74,9 @@ public:
     
     int step_simulation( double stepsize ) {
         gsl_odeiv_evolve*  e = gsl_odeiv_evolve_alloc(nbins);
-        gsl_odeiv_control* c = gsl_odeiv_control_y_new(1e-5, 0);
+        gsl_odeiv_control* c = gsl_odeiv_control_y_new(erTol, 0);
         gsl_odeiv_step*    s = gsl_odeiv_step_alloc(gsl_odeiv_step_rkf45, nbins);
-        gsl_odeiv_system sys = {function, NULL, static_cast<size_t>(nbins), this };
+        gsl_odeiv_system sys = {function, NULL,static_cast<size_t>(nbins), this };
         
         double tstop = t+stepsize;
         while (t < tstop) {

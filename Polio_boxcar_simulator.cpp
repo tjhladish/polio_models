@@ -43,13 +43,13 @@ int main(int argc, char** argv){
     vector<double> gamma(ibins);
     vector<double> recovery(rbins);
     
-    for(int i = 0; i < beta.size(); i++){
+    for(unsigned int i = 0; i < beta.size(); i++){
         beta[i] = numContacts*probInfection(pow(10,i));
     }
-    for(int i = 0; i < gamma.size(); i++){
+    for(unsigned int i = 0; i < gamma.size(); i++){
         gamma[i] = 1.0/infectPeriod()[i];
     }
-    for(int i = 0; i < recovery.size(); i++){
+    for(unsigned int i = 0; i < recovery.size(); i++){
         recovery[i] = .03;
     }
     
