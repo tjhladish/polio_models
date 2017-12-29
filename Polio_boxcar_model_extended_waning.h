@@ -44,7 +44,7 @@ public:
     
     void initialize(vector<double>initialValues, int rbins) {
         x = new double[nbins];
-        for(int i = 0; i < nbins; i++){
+        for(unsigned int i = 0; i < nbins; i++){
             if(i >= (initialValues.size()-1)){
                 x[i] = initialValues.back()/(double)rbins;//last element in initial values vector is sum of all R compartments
             }
@@ -57,7 +57,7 @@ public:
     void derivative(double const x[], double dxdt[]) {
         double totalPop = 0;
         double infectPop = 0;
-        for(int i = 0; i < nbins; i++){
+        for(unsigned int i = 0; i < nbins; i++){
             totalPop += x[i];
             if(i >0 and i < 5){
                 infectPop += x[i];
@@ -74,7 +74,7 @@ public:
         dxdt[8] = g[3]*x[4] - (r[2] + mu)*x[8];
         
     }
-    void printX(){for(int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
+    void printX(){for(unsigned int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
     
 };
 
