@@ -35,11 +35,11 @@ public:
     
     ~DiffEq_Sim() {};
     
-    int nbins;
+    unsigned int nbins;
     double* x;
     //double* r;
     
-    void printX() { for(int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
+    void printX() { for(unsigned int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
     
     vector<double> get_state() {
         vector<double> C;
