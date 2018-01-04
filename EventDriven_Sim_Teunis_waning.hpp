@@ -203,7 +203,7 @@ public:
     }
     void setDurationInfection(){
         //sets duration of infection, peak antibody level
-        m_durationInfection = (1/(antibodyGrowth - pathogenGrowth))*log(1+ ((antibodyGrowth - pathogenGrowth)*m_initialPathogen)/(double)(pathogenClearance*m_initialAntibody));
+        m_durationInfection = (1/(antibodyGrowth - pathogenGrowth))*log(1+((antibodyGrowth - pathogenGrowth)*m_initialPathogen)/(double)(pathogenClearance*m_initialAntibody));
         m_peakAntibody = m_initialAntibody*exp(antibodyGrowth*m_durationInfection);
     }
     double getPeakAntibody(){
@@ -229,7 +229,7 @@ public:
             m_antibodyLevel = m_initialAntibody*exp(antibodyGrowth*t);
         }
         else{
-            m_antibodyLevel = m_peakAntibody*pow((1+ (r - 1)*pow(m_peakAntibody,(r-1))*antibodyDecay*(tnew-m_durationInfection)),(-1/(r-1)));
+            m_antibodyLevel = m_peakAntibody*pow((1+(r - 1)*pow(m_peakAntibody,(r-1))*antibodyDecay*(tnew-m_durationInfection)),(-1/(r-1)));
         }
         return m_antibodyLevel;
     }
@@ -346,7 +346,7 @@ public:
     vector<double> IDCvec;
     vector<double> IEvec;
     vector<double> NonInfvec;
-    vector<double>timevec;
+    vector<double> timevec;
     vector<double> antTit50;
     vector<double> antTit100;
     vector<double> antTit2048;

@@ -35,7 +35,7 @@ polio_boxcar: Polio_boxcar_simulator.cpp Polio_boxcar_model_extended_waning.h DI
 	g++ $(FLAGS) $(INCLUDE) Polio_boxcar_simulator.cpp -o polio_boxcar $(GSL_LIB)
 
 polio_boxcar_cel: Polio_boxcar_simulator.cpp Polio_boxcar_model_extended_waning.h DIFFEQ_SIM.h Polio_boxcar_parameters.h
-	g++ $(FLAGS) Polio_boxcar_simulator.cpp -o polio_boxcar_cel -lgsl
+	g++-4.8 $(FLAGS) Polio_boxcar_simulator.cpp -o polio_boxcar_cel -lgsl
 
 $(output_dir)/polio_data:
 	mkdir $@
