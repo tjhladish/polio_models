@@ -377,35 +377,3 @@ double integ_pi3(const double tau) {
 }
 
 
-int main(void) {
-    ofstream myfile;
-    myfile.open("/Users/Celeste/Desktop/polio_pde_test_R0=10.csv",ios_base::app);
-    const double step = 1.0;
-    f_params params;
-    /*for (double tau_max = 0; tau_max < params.T; tau_max += step){
-        cout<<"T "<<params.T<<"\n";
-        //cout<<"integ_pi1 "<<integ_pi1(params.T)<<"\n";
-
-    }*/
-    double i1 = integ_eqI1(params.T);
-    double r=integ_eqR(params.T);
-    double ir=integ_eqIr(params.T);
-    double r0 = integ_R0(params.T);
-    //double b1 = beta1(tau_max,&params);
-    //myfile<<b1<<"\n";
-    //myfile<<"R0"<<" , "<<"I1"<<" , "<<"R"<<" , "<<"Ir "<<" , "<<"mu"<<" , "<<"mu0"<<" , "<<"b0"<<" , "<<"y0"<<" , "<<"c"<<" , "<<"t1"<<" , "<<"y1"<<" , "<<"r"<<" , "<<"nu"<<" , "<<"contact1"<<" , "<<"recover1"<<" , "<<"popsize"<<"\n";
-    //myfile<<"\n";
-    //myfile<<r0<<" , "<<i1<<" , "<<r<<" , "<<ir<<", "<<params.mu<<" , "<<params.mu0<<" , "<<params.b0<<" , "<<params.y0<<" , "<<params.c<<" , "<<params.t1<<" , "<<params.y1<<" , "<<params.r<<" , "<<params.nu<<" , "<<params.contactRate1<<" , "<<params.recover1<<" , "<<params.popSize<<"\n";
-    cout<<"R0 "<<r0<<"\n";
-    cout<<"I1 "<<i1<<"\n";
-    cout<<"I1(0) "<<params.mu*params.popSize*(1.0-1.0/integ_R0(params.T))<<"\n";
-    cout<<"R "<<r<<"\n";
-    cout<<"R(0) "<<(params.mu*params.popSize*(1.0-1.0/integ_R0(params.T))*integ_gamma1pi1(params.T)+params.popSize*integ_gamma2pi3(params.T)*((1.0-1.0/integ_R0(params.T))*(1.0-params.mu*(integ_pi1(params.T)+integ_gamma1pi1(params.T)*integ_pi2(params.S))))/integ_gamma2pi3(params.T)*integ_pi2(params.S)+integ_pi3(params.T))<<"\n";
-    cout<<"Ir "<<ir<<"\n";
-    cout<<"Ir(0) "<<params.popSize*(1.0-1.0/integ_R0(params.T))*(1.0-params.mu*(integ_pi1(params.T)+integ_gamma1pi1(params.T)*integ_pi2(params.S)))/(integ_gamma2pi3(params.T)*integ_pi2(params.S)+integ_pi3(params.T))<<"\n";
-    cout<<"S "<<params.popSize/r0<<"\n";
-    cout<<(1/r0)+(i1/params.popSize)+(r/params.popSize)+(ir/params.popSize)<<"\n";
-    //myfile<<"R0 = "<<integ_R0(28)<<"\n";
-    myfile.close();
-
-}

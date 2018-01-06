@@ -1,3 +1,12 @@
+//
+//  PDE_Simulator.cpp
+//  
+//
+//  Created by Celeste on 1/3/18.
+//
+//
+
+#include <stdio.h>
 #include <iostream>
 #include <math.h>
 #include <assert.h>
@@ -12,24 +21,24 @@
 using namespace std;
 
 void usage() {
-
-   cerr << "\n\tUsage: ./pde <max_simulationTimeSteps> <waningTimeSteps> <equilibrium_epsilon> <equilibrium_window>\n\n";
-   exit(-1);
-
+    
+    cerr << "\n\tUsage: ./pde <max_simulationTimeSteps> <waningTimeSteps> <equilibrium_epsilon> <equilibrium_window>\n\n";
+    exit(-1);
+    
 }
 
 int main(int argc, char** argv){
-
+    
     if (argc!=5) usage();
     /*ofstream myfile;
-    ofstream myfile1;
-    ofstream myfile2;
-    ofstream myfile3;
-    myfile.open("/Users/Celeste/Desktop/pde_test_Ir.csv");
-    myfile1.open("/Users/Celeste/Desktop/pde_test_I1.csv");
-    myfile2.open("/Users/Celeste/Desktop/pde_test_S.csv");
-    myfile3.open("/Users/Celeste/Desktop/pde_test_R.csv");*/
-//within-host parameters
+     ofstream myfile1;
+     ofstream myfile2;
+     ofstream myfile3;
+     myfile.open("/Users/Celeste/Desktop/pde_test_Ir.csv");
+     myfile1.open("/Users/Celeste/Desktop/pde_test_I1.csv");
+     myfile2.open("/Users/Celeste/Desktop/pde_test_S.csv");
+     myfile3.open("/Users/Celeste/Desktop/pde_test_R.csv");*/
+    //within-host parameters
     const double mu0 = 0.1841; //pathogen growth rate
     const double mu = 0.2; //antibody growth rate
     const double b0 = 1; //initial pathogen concentration
@@ -39,8 +48,8 @@ int main(int argc, char** argv){
     const double c = b0*((mu-mu0)/(y0*(exp((mu-mu0)*t1)-1))); //pathogen clearance rate
     const double r =1.7; //immunity shape parameter
     const double nu = 2; //immunity waning rate
-
-//between-host parameters
+    
+    //between-host parameters
     const double K1 = (100/(double)365); //I1 daily contact rate
     const double K2 = (50/(double)365); //Ir daily contact rate
     const double alpha1 = (13/(double)365); //I1 daily recovery parameter
@@ -51,8 +60,8 @@ int main(int argc, char** argv){
     const double C2 = 0.0001; //constant for waning function
     const double delta = (0.02/(double)365); //daily birth/death rate
     //const double totalPop = 101; //total population size
-
-//time parameters
+    
+    //time parameters
     const double dt = 0.01; //time step in y direction (simulation time direction)
     const double dtau = 0.01; //time step in x direction (time since infection direction)
     const double dwane = 0.01; //time step in x direction (time since recovery direction)
@@ -60,8 +69,8 @@ int main(int argc, char** argv){
     const unsigned int recoveryTimeSteps = t1/dtau; //delta tau * recoveryTimeSteps = final infectious time of interest
     const unsigned int waningTimeSteps = atoi(argv[2])/dt; //delta t * waningTimeSteps = final waning time of interest
     const unsigned int withinHostTimeSteps = recoveryTimeSteps + waningTimeSteps; //delta t * withinHostTimeSteps = final time since infection tau (days)
-
-//convergence parameters
+    
+    //convergence parameters
     const double epsilon = atof(argv[3]);
     const unsigned int eq_interval = atoi(argv[4])/dt;
     pair<unsigned int, double> obs_min;
@@ -69,8 +78,8 @@ int main(int argc, char** argv){
     deque<double> obs_deque;
     //const double T = dt*N;
     //const double tau = dt*M;
-
-//vectors for linking functions
+    
+    //vectors for linking functions
     vector<double>  beta1(recoveryTimeSteps,0.0);
     vector<double>  beta2(recoveryTimeSteps,0.0);
     vector<double> gamma1(recoveryTimeSteps,0.0);
@@ -78,8 +87,8 @@ int main(int argc, char** argv){
     vector<double>    rho(waningTimeSteps,0.0);
     
     int rhoCounter = 0;
-//vectors for within-host solution
-//Construct linking functions
+    //vectors for within-host solution
+    //Construct linking functions
     for (unsigned int j = 0; j < withinHostTimeSteps; ++j) {
         const double t = dt*j;
         double pathogen;
@@ -92,17 +101,17 @@ int main(int argc, char** argv){
             pathogen = 0;
             antibody = y1*pow((1+(r-1)*pow(y1,r-1)*nu*(t-t1)),-(1/(r-1)));
         }
-
+        
         if(j<=t1/dt){//integrals of these quantities only defined up until recovery time
             const double beta1Link = (K1*pathogen)/(pathogen+C);
             const double beta2Link = (K2*pathogen)/(pathogen+C);
             const double gamma1Link = (alpha1*antibody)/(pathogen+C1);
             const double gamma2Link = (alpha2*antibody)/(pathogen+C1);
             
-                          gamma1[j] = gamma1Link;
-                          gamma2[j] = gamma2Link;
-                          beta1[j]  = beta1Link;
-                          beta2[j]  = beta2Link;
+            gamma1[j] = gamma1Link;
+            gamma2[j] = gamma2Link;
+            beta1[j]  = beta1Link;
+            beta2[j]  = beta2Link;
         }
         
         else{//only keeps track of waning rate during waning period
@@ -112,8 +121,8 @@ int main(int argc, char** argv){
         }
         
     }
-
-//vectors for between-host solution
+    
+    //vectors for between-host solution
     cerr << "sT: " << simulationTimeSteps << "\n";
     vector<double> S(simulationTimeSteps,0.0);
     cerr << "b\n";
@@ -140,11 +149,11 @@ int main(int argc, char** argv){
     symptomaticIncidence[0] = S[0]*(beta1[0]*I1[0][0]+beta2[0]*Ir[0][0])/totalPop;
     obs_min = {0,symptomaticIncidence[0]};
     obs_max = {0,symptomaticIncidence[0]};
-
-//Finite Difference Method
+    
+    //Finite Difference Method
     // use backward Euler difference quotient to approximate time derivatives
     // approximate integrals using right end point rule
-
+    
     for(unsigned int k=1; k<simulationTimeSteps; k++){//looping through time (rows)
         if (k % 1000 == 0) cerr << k << " " << obs_max.second - obs_min.second << " | " <<  obs_max.first << "," << obs_max.second << endl;
         //calculate the total population
@@ -169,7 +178,7 @@ int main(int argc, char** argv){
         }
         S[k] = (S[k-1] + dt*delta*totalPop)/(1+dt*(intSum/totalPop+delta));
         double intSum2 =0;
-
+        
         for(unsigned int j=0; j<waningTimeSteps; j++){//columns
             if(j==0) {
                 R[1][j] = intSum1;//boundary condition
@@ -194,7 +203,7 @@ int main(int argc, char** argv){
         symptomaticIncidence[k] = sI;
         asymptomaticIncidence[k] = (1.0/totalPop)*intSum2*intSum3;
         
-
+        
         // convergence bookkeeping
         if (sI >= obs_max.second) obs_max = {k, sI};       // update min and
         if (sI <= obs_min.second) obs_min = {k, sI};       // max obs if necessary
@@ -241,22 +250,22 @@ int main(int argc, char** argv){
         for(unsigned int j = 0; j < waningTimeSteps; j++){
             R[0][j]  = R[1][j];
         }
-  
-     }
+        
+    }
     
-/*    cout<<"\nR vec size "<<R.size()<<"\n";
-    for (auto v: R) { for (auto e: v) cout << e << " "; }
-    cout<<"\nI1 vec size "<<I1.size()<<"\n";
-    for (auto v: I1) { for (auto e: v) cout << e << " "; }
-    cout<<"\nIr vec size "<<Ir.size()<<"\n";
-    for (auto v: Ir) { for (auto e: v) cout << e << " "; }
-    cout<<"\nS vec size "<<S.size()<<"\n";
-    for (auto e: S) { cout << e << " "; }*/
+    /*    cout<<"\nR vec size "<<R.size()<<"\n";
+     for (auto v: R) { for (auto e: v) cout << e << " "; }
+     cout<<"\nI1 vec size "<<I1.size()<<"\n";
+     for (auto v: I1) { for (auto e: v) cout << e << " "; }
+     cout<<"\nIr vec size "<<Ir.size()<<"\n";
+     for (auto v: Ir) { for (auto e: v) cout << e << " "; }
+     cout<<"\nS vec size "<<S.size()<<"\n";
+     for (auto e: S) { cout << e << " "; }*/
     //cout<<"\nsymptomatic incidence size "<<symptomaticIncidence.size()<<"\n";
     //for (auto e: symptomaticIncidence) { cout << e << endl; }
     //for (auto e: asymptomaticIncidence) { cout << e << endl; }
     //cout<<endl;
     cerr << "Converged at [" << obs_min.second << ", " << obs_max.second << "] after " << symptomaticIncidence.size() << " observations\n";
-
+    
     return 0;
 }
