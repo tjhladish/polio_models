@@ -55,26 +55,45 @@ public:
     }
     
     void derivative(double const x[], double dxdt[]) {
+        //key:
+        //S -> x[0]     R_2 -> x[7]
+        //I_1 -> x[1]   R_2'-> x[8]
+        //I_2 -> x[2]   R_2''-> x[9]
+        //I_3 -> x[3]   R_3 -> x[10]
+        //R_1 -> x[4]   R_3'-> x[11]
+        //R_1'-> x[5]   R_3''-> x[12]
+        //R_1''-> x[6]
         double totalPop = 0;
         double infectPop = 0;
         for(unsigned int i = 0; i < nbins; i++){
             totalPop += x[i];
-            if(i >0 and i < 5){
+            if(i >0 and i < 4){
                 infectPop += x[i];
             }
         }
         dxdt[0] = mu*totalPop - (b[0]*infectPop/totalPop + mu)*x[0];
-        dxdt[1] = b[0]*x[0]*infectPop/totalPop - (g[0] + mu)*x[1];
-        dxdt[2] = b[1]*x[5]*infectPop/totalPop - (g[1] + mu)*x[2];
-        dxdt[3] = b[2]*x[6]*infectPop/totalPop - (g[2] + mu)*x[3];
-        dxdt[4] = b[3]*x[7]*infectPop/totalPop - (g[3] + mu)*x[4];
-        dxdt[5] = g[0]*x[1] - (b[1]*infectPop/totalPop + mu)*x[5] + r[0]*x[6];
-        dxdt[6] = g[1]*x[2] - (b[2]*infectPop/totalPop + r[0] + mu)*x[6] + r[1]*x[7];
-        dxdt[7] = g[2]*x[3] - (b[3]*infectPop/totalPop + r[1] + mu)*x[7] + r[2]*x[8];
-        dxdt[8] = g[3]*x[4] - (r[2] + mu)*x[8];
+        dxdt[1] = (b[0]*x[0] + b[2]*x[5] + b[3]*x[6])*infectPop/totalPop - (g[0] + mu)*x[1];
+        dxdt[2] = (b[1]*x[4] + b[5]*x[8] + b[6]*x[9])*infectPop/totalPop - (g[1] + mu)*x[2];
+        dxdt[3] = (b[4]*x[7] + b[7]*x[11] + b[8]*x[12])*infectPop/totalPop - (g[2] + mu)*x[3];
+        dxdt[4] = g[0]*x[1] - (b[1]*infectPop/totalPop + r[0] + mu)*x[4];
+        dxdt[5] = r[0]*x[4] - (b[2]*infectPop/totalPop + r[1] + mu)*x[5];
+        dxdt[6] = r[1]*x[5] - (b[3]*infectPop/totalPop + mu)*x[6];
+        dxdt[7] = g[1]*x[2] - (b[4]*infectPop/totalPop + r[2] + mu)*x[7];
+        dxdt[8] = r[2]*x[7] - (b[5]*infectPop/totalPop + r[3] + mu)*x[8];
+        dxdt[9] = r[3]*x[8] - (b[6]*infectPop/totalPop + mu)*x[9];
+        dxdt[10] = g[2]*x[3] - (r[4] + mu)*x[10];
+        dxdt[11] = r[4]*x[10] - (b[7]*infectPop/totalPop + r[5] + mu)*x[11];
+        dxdt[12] = r[5]*x[11] - (b[8]*infectPop/totalPop + mu)*x[12];
         
     }
-    void printX(){for(unsigned int i=0; i < nbins; i++) { cout << x[i] << " ";} cout << endl; }
+    void printX(){
+        for(unsigned int i=0; i < nbins; i++){
+            cout << x[i] << " ";
+        }
+        cout << endl;
+        delete [] x;
+        x=NULL;
+    }
     
 };
 

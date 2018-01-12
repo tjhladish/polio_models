@@ -14,12 +14,12 @@
 #include <vector>
 
 void usage(){
-    cout<<"\n\t Usage: Input model initialization <S> <I1> <I2> <I3> <I4> <sum of all R compartments>\n";
+    cout<<"\n\t Usage: Input model initialization <S> <I1> <I2> <I3> <sum of all R compartments>\n";
     exit(-1);
 }
 
 int main(int argc, char** argv){
-    if(argc!= 7) usage();
+    if(argc!= 6) usage();
     
     vector<double> initialValues(argc-1);
     for(int i = 1; i<argc; i++){
@@ -33,9 +33,9 @@ int main(int argc, char** argv){
     infectPeriod();
     
     //set number of compartments
-    int nbins = 9; //total compartments
+    int nbins = 13; //total compartments
     int sbins = 1;
-    int ibins = 4;
+    int ibins = 3;
     int rbins = nbins - (sbins + ibins);
     
     //vectors for parameters
@@ -44,10 +44,12 @@ int main(int argc, char** argv){
     vector<double> recovery(rbins);
     
     for(unsigned int i = 0; i < beta.size(); i++){
-        beta[i] = numContacts*probInfection(pow(10,i));
+        //beta[i] = numContacts*probInfection(pow(10,i));
+        beta[i] = numContacts*((i+1)/2.0);
     }
     for(unsigned int i = 0; i < gamma.size(); i++){
-        gamma[i] = 1.0/infectPeriod()[i];
+        //gamma[i] = 1.0/infectPeriod()[i];
+        gamma[i] = 13.0*(i+1);
     }
     for(unsigned int i = 0; i < recovery.size(); i++){
         recovery[i] = .03;
@@ -66,7 +68,6 @@ int main(int argc, char** argv){
     
     //Output simulation results
     model.printX();
-
     
     
     return 0;
