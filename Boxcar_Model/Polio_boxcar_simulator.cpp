@@ -7,7 +7,8 @@
 //
 
 #include <stdio.h>
-#include "Polio_boxcar_model_extended_waning.h"
+#include "adjustable_boxcar_model.h"
+//#include "Polio_boxcar_model_extended_waning.h" //uncomment for explicit ode model
 #include "DIFFEQ_SIM.h"
 #include <math.h>
 #include "Polio_boxcar_parameters.h"
@@ -37,31 +38,46 @@ int main(int argc, char** argv){
     int sbins = 1;
     int ibins = 3;
     int rbins = nbins - (sbins + ibins);
+    int subrbins = 2;
     
     //vectors for parameters
     vector<double> beta(sbins + rbins-1);//1 recovered compartment has complete immunity
     vector<double> gamma(ibins);
+    vector<double> fastWane(ibins);
+    vector<double> slowWane(ibins);
     vector<double> recovery(rbins);
     
     for(unsigned int i = 0; i < beta.size(); i++){
         //beta[i] = numContacts*probInfection(pow(10,i));
-        beta[i] = numContacts*((i+1)/2.0);
+        //beta[i] = numContacts*((i+1)/2.0);
+        beta[i]=10;//toy number for simulation validation
     }
     for(unsigned int i = 0; i < gamma.size(); i++){
         //gamma[i] = 1.0/infectPeriod()[i];
-        gamma[i] = 13.0*(i+1);
+        //const double baseline_recovery_rate = 365.0/28;
+        //gamma[i] = baseline_recovery_rate*(1+i); // gamma increases linearly with sequential infections (i)
+        gamma[i] = 1;//toy number for simulation validation
     }
-    for(unsigned int i = 0; i < recovery.size(); i++){
-        recovery[i] = .03;
+    for(unsigned int i = 0; i < fastWane.size(); i++){
+        fastWane[i] = 0.01;//toy number for simulation validation
     }
+    for(unsigned int i = 0; i < slowWane.size(); i++){
+        slowWane[i] = 0.01;//toy number for simulation validation
+    }
+    for(unsigned int i =0; i < recovery.size(); i++){
+        recovery[i] = 0.01;//toy number for simulation validation
+    }
+    
     
     
     //Constuct model and parameters
-    Polio_boxcar_model model(birthRate,beta,gamma,recovery,nbins);
+    adjustable_boxcar_model model(birthRate,beta,gamma,recovery,fastWane,slowWane,nbins,ibins,rbins,subrbins);
+    //Polio_boxcar_model model(birthRate,beta,gamma,recovery,nbins); //uncomment for explicit ode model
     
     
     //Initialize model using user inputs
-    model.initialize(initialValues, rbins);
+    model.initialize(initialValues);
+    //model.initialize(initialValues,rbins);//uncomment for explicit ode model
     
     //Run model
     model.run_simulation();
