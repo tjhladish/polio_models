@@ -1,13 +1,13 @@
 #include "Cholera_Sim.h"
 
 int main() { 
-    const double b       = 0.02*1/4;
-    const double beta    = 10.0;
-    const double C       = 0.0002;
-    const double epsilon = 90.0/583;
-    const double gamma   = 90.0/14;
-    const double mu      = 0.02*1/4;
-    const double rho     = 90.0/102.2;
+    const double b       = 0.02*1/12;//birth rate
+    const double beta    = 10.0;//transmission rate
+    const double C       = 0.0002;//prob of symptomatic infection
+    const double epsilon = 30.0/583;//waning rate from symptomatic infection
+    const double gamma   = 30.0/14;//recovery rate from symptomatic infection
+    const double mu      = 0.02*1/12;//death rate
+    const double rho     = 30.0/102.2;//recovery from asymptomatic infection
 
     //const double N       = 790590.0/4;
     const double S       = 33509.20478;
@@ -18,7 +18,7 @@ int main() {
     Cholera_Sim sim(b, beta, C, epsilon, gamma, mu, rho);
     sim.initialize(S, I, Y, R);
 
-    const int max_time   = 56;
+    const int max_time   = 168;
 
     for (int i = 0; i < max_time; ++i) {
         sim.printX();
