@@ -442,9 +442,9 @@ public:
 
             //set environment contact--occurs daily
             //random so that at initialization everyone isn't contacting at exact same time
-            //double envCon = unif_real(rng)/(double)365;
-            //EventQ.emplace(envCon,ENVIRONMENT_CONTACT,p);
-            //event_counter[ENVIRONMENT_CONTACT]++;
+            double envCon = unif_real(rng)/(double)365;
+            EventQ.emplace(envCon,ENVIRONMENT_CONTACT,p);
+            event_counter[ENVIRONMENT_CONTACT]++;
 
             //antibody titer level distribution
             if(p->getTiterLevel()<=50){
@@ -667,7 +667,6 @@ public:
         switch (waningImmunityScenario) {
             case 1://Famulare waning
             {
-                
                 //choose person to contact
                 int contact_idx = unif_int(rng);
                 if(contact_idx >= p->getIndex()) contact_idx++;
@@ -689,6 +688,7 @@ public:
                         infectByDirectContactFamulare(contact);
                     }
                 }
+                break;
                 
             }
             case 2://Teunis waning
@@ -710,11 +710,14 @@ public:
                         infectByDirectContactTeunis(contact);
                     }
                 }
+                break;
             }
             default:
-                cout<<"incorrect input";
+            {
+                cout<<"incorrect input\n";
                 exit(-1);
                 break;
+            }
         }
     }
     
@@ -804,7 +807,7 @@ public:
         Now = event.time;
 
         //take compartment counts for output
-        /*if(Now-delta>reportingThreshold){
+        if(Now-delta>reportingThreshold){
             IDCvec.push_back(IDCsum);
             IEvec.push_back(IEsum);
             NonInfvec.push_back(NonInfsum);
@@ -827,7 +830,7 @@ public:
             antTit100.push_back(TiterLevel100);
             antTit2048.push_back(TiterLevel2048);
             delta=Now;
-        }*/
+        }
         //display events in queue
         /*if(Now>counter){
           cout<<"Loop "<< ii<<"\n";
@@ -859,7 +862,7 @@ public:
             sheddingPeople.insert(individual);
         }
         else if(event.type == AGING){
-
+            //empty on purpose
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);

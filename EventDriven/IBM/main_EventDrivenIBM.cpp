@@ -1,4 +1,5 @@
 #include "EventDriven_Sim_Teunis_waning.hpp"
+#include <cstdlib>
 
 
 
@@ -6,26 +7,26 @@ int main(int argc, char** argv) {
     if (argc != 3) { cerr << "\t\nUsage: ./polio <pop_size> <waning_function>\n \t waning_function: Enter 1 for Famulare waning and 2 for Teunis waning\n\n"; exit(-1);}
 
     cout << "Specified pop size: " << argv[1] << endl;
-    //using namespace std;
+    using namespace std;
     //string output_dir = "/Users/Celeste/Desktop/C++_Polio_IBM/";
     string output_dir = "../polio_data/";
     //string output_dir = "./";
-    std::ofstream myfile4;
-    std::ofstream myfile5;
-    std::ofstream myfile6;
-    std::ofstream myfile7;
+    ofstream myfile4;
+    ofstream myfile5;
+    ofstream myfile6;
+    ofstream myfile7;
     /*std::ofstream myfile9;
     std::ofstream myfile10;
     std::ofstream myfile11;*/
     myfile4.open (output_dir + "N=1000_I1vec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
-    myfile5.open (output_dir + "N=1000_IRvec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
-    myfile6.open (output_dir + "N=1000_Svec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
+    myfile6.open (output_dir + "N=1000_IEnvVec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
+    myfile5.open (output_dir + "N=1000_Svec_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
     myfile7.open (output_dir + "N=1000_time_waningfn_nonexprec_ateq_minTiter_fixedsheddingfn_test.csv");
     const int numSims  = 1;
     const int N        = atoi(argv[1]);
     const double DEATH = 0.02;
-    const double BETA  = 270;
-    const double maxRunTime = 0.2; //units in years
+    const double BETA  = 2700;
+    const double maxRunTime = 1; //units in years
     const int waningImmunity = atoi(argv[2]);
 
     //for counts at end of sim
