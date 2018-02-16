@@ -478,6 +478,7 @@ public:
                 TiterLevel2048++;
             }
         }
+        
         for(int i = 0; i < infected; i++){
             if(waningImmunityScenario==1){//maybe it would be better to make this a better descriptor than 1 for Fam and 2 for Teunis
                 NonInfsum--;
@@ -762,7 +763,7 @@ public:
     
     void environmentContact(Person* p){
         //define a dose of virus from environment
-        virusCon =.00000000005*environment;//***toy number env compartment too large
+        virusCon = propVirusinWater*environment;
         
         //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
         envDose = 2*virusCon; //2 is num L water drank per day
@@ -821,7 +822,7 @@ public:
     
     void updateEnvironment(double timeStep){
         if(timeStep > 0 and environment > 0){
-            environment+=exp(-inactivationRate*timeStep*365);
+            environment-=exp(inactivationRate*timeStep*365);
             if(environment < 0){
                 environment = 0;
             }
