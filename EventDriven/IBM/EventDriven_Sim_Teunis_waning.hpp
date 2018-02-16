@@ -29,7 +29,7 @@ using namespace std;
 
 enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, AGING, SHED_INTO_ENVIRONMENT,NUM_OF_EVENT_TYPES};
 
-enum InfectionStatus{IDC,IE, NA};
+enum InfectionStatus{IDC,IE,NA};
 //infection status means the most recent cause of infection
 //NA means never infected
 //DC suffix -> infection by direct contact
@@ -47,6 +47,8 @@ private:
     double m_initialTiterLevel;//need initial titer level after infection for waning fn
     double m_titerLevel;
     double m_timeAtInfection;
+    double m_timeToRec=0;
+    double m_timetoDeath=0;
 
     //General attributes
     InfectionStatus m_infectionStatus;
@@ -110,22 +112,36 @@ public:
     void setTimeToShed(double time){
         m_timeToShed = time;
     }
-    void reset(){
-        m_infectionStatus = NA;
-        m_initialTiterLevel = minTiter;
-        m_numInfectionsDC = 0;
-        m_numInfectionsEnv = 0;
-        m_timeAtInfection = numeric_limits<double>::max();
-        m_age = 0;
-        m_ageClass = AGE5;
-        m_titerLevel = m_initialTiterLevel;
-        m_timeToShed = 0;
-        m_durationInfection = 0;
-        m_initialPathogen = 0;
-        m_initialAntibody = 1.0;
-        m_peakAntibody = 1.0;
-        m_antibodyLevel = 0.0;
-        m_pathogenLevel = 0;
+    void setRecoveryTime(double rtime){
+        m_timeToRec = rtime;
+    }
+    void setDeathTime (double dtime){
+        m_timetoDeath = dtime;
+    }
+    double getRecoveryTime(){
+        return m_timeToRec;
+    }
+    double getDeathTime(){
+        return m_timetoDeath;
+    }
+    void reset(int waningImmunityScenario){
+        setNumInfectionsDC(0);
+        setNumInfectionsEnv(0);
+        setInfectionStatus(NA);
+        setAge(0);
+        setAgeClass(AGE5);
+        setTimeToShed(0.0);
+        if(waningImmunityScenario==1){
+            setInitialTiterLevel(minTiter);
+            setTimeAtInfection(numeric_limits<double>::max());
+            setTiterLevel(m_initialTiterLevel);
+        }
+        else{
+            setInitialAntibody(1.0);
+            setInitialPathogen(0.0);
+            setDurationInfection();//sets peak antibody level
+        }
+        
     }
     double convertToDays(double t){
         return t*365;
@@ -219,6 +235,9 @@ public:
     double getInitialAntibody(){
         return m_initialAntibody;
     }
+    void setInitialAntibody(double ant){
+        m_initialAntibody = ant;
+    }
     double getInitialPathogen(){
         return m_initialPathogen;
     }
@@ -278,7 +297,7 @@ public:
 class EventDriven_MassAction_Sim {
 public:
     // constructor
-    EventDriven_MassAction_Sim(const int n, const double beta, const double death, const double maxRunTime, const int wanIm,int seed = (random_device())()): rng(seed), N(n), BETA(beta), DEATH_RATE(death), maxRunTime(maxRunTime), waningImmunityScenario(wanIm),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
+    EventDriven_MassAction_Sim(const int n, const double beta, const double death, const double maxRunTime, const int wanIm, int seed=(random_device())()): rng(seed), N(n), BETA(beta), DEATH_RATE(death), maxRunTime(maxRunTime), waningImmunityScenario(wanIm),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
         people = vector<Person*>(n);
         for (Person* &p: people) p = new Person(people_counter++);
         Now=0.0;
@@ -307,7 +326,7 @@ public:
     }
 
 
-    mt19937 rng;
+    
     const int N; //total population size
     const double BETA;
     const double DEATH_RATE;
@@ -315,6 +334,7 @@ public:
     double environment;
     const double maxRunTime;
     const int waningImmunityScenario;
+    mt19937 rng;
 
     exponential_distribution<double> exp_beta;
     exponential_distribution<double> exp_death;
@@ -439,6 +459,7 @@ public:
             p->setInfectionStatus(NA);
             p->setInitialTiterLevel(maxTiter);
             p->setTimeAtInfection(numeric_limits<double>::max());
+            death(p);
 
             //set environment contact--occurs daily
             //random so that at initialization everyone isn't contacting at exact same time
@@ -569,6 +590,7 @@ public:
         }
         //time to recovery
         double Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
+        p->setRecoveryTime(Tr);
         EventQ.emplace(Tr,INFECTION_RECOVERY,p);
         event_counter[INFECTION_RECOVERY]++;
         return;
@@ -658,6 +680,7 @@ public:
     void death(Person* p){
         exponential_distribution<double> exp_death(DEATH_RATE);
         double Td = exp_death(rng) + Now;
+        p->setDeathTime(Td);
         EventQ.emplace(Td,DEATH,p);
         event_counter[DEATH]++;
         return;
@@ -722,21 +745,26 @@ public:
     }
     
     void infectionRecovery(Person* p){
+        //no else statement to prevent dead person from fulfilling recovery time
         if(p->getInfectionStatus()==IDC){
             IDCsum--;
             NonInfsum++;
             sheddingPeople.erase(p);
+            p->setInfectionStatus(NA);
         }
         else if(p->getInfectionStatus()==IE){
             IEsum--;
             NonInfsum++;
             sheddingPeople.erase(p);
+            p->setInfectionStatus(NA);
         }
     }
     
     void environmentContact(Person* p){
         //define a dose of virus from environment
-        virusCon = environment; //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
+        virusCon =.00000000005*environment;//***toy number env compartment too large
+        
+        //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
         envDose = 2*virusCon; //2 is num L water drank per day
         
         //no simultaneous infections
@@ -785,7 +813,7 @@ public:
             }
         }
         sheddingPeople.erase(p);
-        p->reset();
+        p->reset(waningImmunityScenario);
         
         //set time to death
         death(p);

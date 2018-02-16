@@ -25,8 +25,8 @@ int main(int argc, char** argv) {
     const int numSims  = 1;
     const int N        = atoi(argv[1]);
     const double DEATH = 0.02;
-    const double BETA  = 2700;
-    const double maxRunTime = 1; //units in years
+    const double BETA  = 1;//can't set to zero otherwise recovery time is inf
+    const double maxRunTime = 10; //units in years
     const int waningImmunity = atoi(argv[2]);
 
     //for counts at end of sim
@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
     int nums=0;
     int numi1=0;
     int numr=0;
+    //int seed = 2;
     
     for(int i=0; i<numSims; i++) {
         EventDriven_MassAction_Sim sim(N,BETA,DEATH,maxRunTime,waningImmunity);
