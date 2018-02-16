@@ -28,13 +28,12 @@ const double propToVacc = 0.25;
 
 //Environment contact parameters
 const double inactivationRate = 2*pow(10,.223161);//TCID50 per day assumes surface water at 22 deg C (converted from PFU to TCID5)(Hurst,1989)
-double minusEnvironment = 0.0;
 //const double feces = .128; //Liters/day
 //const double urine = 1.4; //Liters/day
 const double gramsFeces = 128;//avg grams of feces produced per day
 const double chkEnvRate = 12;//once per month
-const double fiftyPerInf=pow(10,7);//units TCID50/L used saturating incidence function -- concentration of PV at which infection rate is 50% of max
-const double propVirusinWater = 1/(double)100000;
+//const double fiftyPerInf=pow(10,7);//units TCID50/L used saturating incidence function -- concentration of PV at which infection rate is 50% of max
+const double propVirusinWater = 1/(double)1000000000;
 
 //probability of shedding parameters (these are all means from Famulare paper) - units in days
 const double muOPV = 30.3;
