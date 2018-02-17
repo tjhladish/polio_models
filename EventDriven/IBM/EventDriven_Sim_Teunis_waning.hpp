@@ -134,7 +134,6 @@ public:
         if(waningImmunityScenario==1){
             setInitialTiterLevel(minTiter);
             setTimeAtInfection(numeric_limits<double>::max());
-            setTiterLevel(m_initialTiterLevel);
         }
         else{
             setInitialAntibody(1.0);
@@ -172,7 +171,7 @@ public:
         return m_timeAtInfection;
     }
     void waningFamulare(double t){
-        const double tnew = convertToMonths(abs(t-m_timeAtInfection)); //time needs to be in months post infection
+        const double tnew = convertToMonths(t-m_timeAtInfection); //time needs to be in months post infection
         if(tnew>=1){//only wanes after one month post infection
             m_titerLevel= max(minTiter, m_initialTiterLevel*pow((tnew),-waningLambda));
         }
@@ -198,18 +197,14 @@ public:
             return Smax;
         }
         else{
-            return ((Smax-Smin)*exp((newBorn-(convertToMonths(m_age)))/tau)+Smin);
+            return ((Smax-Smin)*exp((convertToMonths(newBorn)-(convertToMonths(m_age)))/tau)+Smin);
         }
     }
+
     double stoolViralLoad(double t){
-        if(m_infectionStatus != NA){
-            const double tnew = convertToDays(t-m_timeAtInfection);
-            return max(pow(10.0,2.6),pow(10,((1-k*log2(m_titerLevel))*log(peakShedding())))*(exp(eta-(pow(nu,2)/(double)2)-(pow(log(tnew)-eta,2)/(double)2*pow(nu+xsi*log(tnew),2)))/tnew));
+        const double tnew = convertToDays(t-m_timeAtInfection);
+        return max(pow(10.0,2.6),pow(10.0,((1.0-k*log2(m_titerLevel))*log(peakShedding())))*(exp(eta-(pow(nu,2.0)/2.0)-(pow(log(tnew)-eta,2.0)/(2.0*pow(nu+xsi*log(tnew),2.0))))/tnew));
             //**units are in TCID50/g
-        }
-        else{
-            return 0.0;
-        }
     }
 
 
