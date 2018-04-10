@@ -17,7 +17,7 @@
 const double PIR                  = 0.001; //type 3 paralysis incidence rate
 const double maxTiter             = 2048.0;
 const double minTiter             = 1.0;
-const double maxAge               = 85.0;
+const double maxAge               = 70.0;// (max age in simulation so that mean of dist not zero (in death function)
 const double meanAge              = 18;//Nigeria mean age
 double TTE                        = 0;
 const double vaccRate             = 0.01;
@@ -33,7 +33,7 @@ const double inactivationRate     = 2*pow(10,0.223161);//TCID50 per day assumes 
 const double gramsFeces           = 128.0;//avg grams of feces produced per day
 const double chkEnvRate           = 12.0;//once per month
 //const double fiftyPerInf=pow(10,7);//units TCID50/L used saturating incidence function -- concentration of PV at which infection rate is 50% of max
-const double propVirusinWater     = 1e-9;
+//const double propVirusinWater     = 1e-9;
 
 //probability of shedding parameters (these are all means from Famulare paper) - units in days
 const double muOPV                = 30.3;
