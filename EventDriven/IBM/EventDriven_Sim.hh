@@ -50,7 +50,7 @@ private:
     double m_timeToRec=0.0;
     double m_timetoDeath=0.0;
     double m_timetoBirth=0.0;
-
+    double m_ageEventTime = 0.0;
 
     //General attributes
     InfectionStatus m_infectionStatus;
@@ -60,7 +60,6 @@ private:
     double m_timeToShed;
     int m_age;
     AgeClass m_ageClass;
-    double m_previousAgingTime = 0.0;
 
     //Teunis specific attributes
     double m_durationInfection;
@@ -91,11 +90,11 @@ public:
     void setAgeClass(AgeClass a){
         m_ageClass = a;
     }
-    void setPreviousAgingTime(double time){
-        m_previousAgingTime = time;
+    void setAgeEventTime(double now){
+        m_ageEventTime = now;
     }
-    double getPreviousAgingTime(){
-        return m_previousAgingTime;
+    double getAgeEventTime(){
+        return m_ageEventTime;
     }
     int getNumInfectionsDC(){
         return m_numInfectionsDC;
@@ -487,6 +486,8 @@ public:
                     Age_90_94++;
                 }
                 else{
+                    cout<<"in ending age dist loop\n";
+                    cout<<"age "<<p->getAge()<<"\n";
                     Age_95_99++;
                 }
             }
@@ -546,7 +547,7 @@ public:
             //age distribution within age buckets taken from fitting age distribution to exponential function
             discrete_distribution<int> age {18.33,15.16,12.54,10.38,8.58,7.10,5.88,4.86,4.02,3.33,2.75,2.28,1.88,1.56,1.29,1.07,0.88,0.73,0.60,0.50};
             int personAge = age(rng);
-            p->setAge(chooseAge(personAge,"age"));
+            p->setAge(chooseAge(personAge));
             if(p->getAge()<=5){
                 p->setAgeClass(AGE5);
             }
@@ -564,8 +565,7 @@ public:
             deathTime(p);
             
             //double agingYear = unif_real(rng);
-            //p->setAgeEventTime(Now);
-            p->setPreviousAgingTime(Now);
+            p->setAgeEventTime(Now);
             EventQ.emplace(Now+1.0,AGING,p);
             event_counter[AGING]++;
 
@@ -740,18 +740,12 @@ public:
         return IEsum;
     }
     
-    int chooseAge(int personAge,string event){
+    int chooseAge(int personAge){
         int age;
         switch (personAge) {
             case 0:
             {
-                discrete_distribution<int> AGE0;
-                if(event=="death"){
-                     AGE0 = {18.33,35.97,52.96,69.31,85.06};
-                }
-                else if(event=="age"){
-                    AGE0 = {18.33,17.64,16.99,16.36,15.75};
-                }
+                discrete_distribution<int> AGE0 {18.33,17.64,16.99,16.36,15.75};
                 int ageInGroup = AGE0(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -776,13 +770,7 @@ public:
             }
             case 1:
             {
-                discrete_distribution<int> AGE1;
-                if(event == "death"){
-                    AGE1 = {100.22,114.82,128.87,142.40,155.42};
-                }
-                else if(event=="age"){
-                    AGE1 = {15.16,14.60,14.05,13.53,13.03};
-                }
+                discrete_distribution<int> AGE1 {15.16,14.60,14.05,13.53,13.03};
                 int ageInGroup = AGE1(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -807,13 +795,7 @@ public:
             }
             case 2:
             {
-                discrete_distribution<int> AGE2;
-                if(event=="death"){
-                    AGE2 = {167.97,180.05,191.68,202.87,213.65};
-                }
-                else if(event=="age"){
-                    AGE2 = {12.54,12.08,11.63,11.19,10.78};
-                }
+                discrete_distribution<int> AGE2 {12.54,12.08,11.63,11.19,10.78};
                 int ageInGroup = AGE2(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -838,13 +820,7 @@ public:
             }
             case 3:
             {
-                discrete_distribution<int> AGE3;
-                if(event=="death"){
-                    AGE3 = {224.03,234.02,243.63,252.90,261.81};
-                }
-                else if(event=="age"){
-                    AGE3 = {10.38,9.99,9.62,9.26,8.92};
-                }
+                discrete_distribution<int> AGE3 {10.38,9.99,9.62,9.26,8.92};
                 int ageInGroup = AGE3(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -869,13 +845,7 @@ public:
             }
             case 4:
             {
-                discrete_distribution<int> AGE4;
-                if(event=="death"){
-                    AGE4 = {270.40,278.66,286.62,294.28,301.66};
-                }
-                else if(event=="age"){
-                    AGE4 = {8.58,8.27,7.96,7.66,7.38};
-                }
+                discrete_distribution<int> AGE4 {8.58,8.27,7.96,7.66,7.38};
                 int ageInGroup = AGE4(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -900,13 +870,7 @@ public:
             }
             case 5:
             {
-                discrete_distribution<int> AGE5;
-                if(event=="death"){
-                    AGE5 = {308.76,315.60,322.18,328.52,334.62};
-                }
-                else if(event=="age"){
-                    AGE5 = {7.10,6.84,6.58,6.34,6.10};
-                }
+                discrete_distribution<int> AGE5 {7.10,6.84,6.58,6.34,6.10};
                 int ageInGroup = AGE5(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -931,13 +895,7 @@ public:
             }
             case 6:
             {
-                discrete_distribution<int> AGE6;
-                if(event=="death"){
-                    AGE6 = {340.50,346.15,351.60,356.84,361.89};
-                }
-                else if(event=="age"){
-                    AGE6 = {5.88,5.66,5.45,5.24,5.05};
-                }
+                discrete_distribution<int> AGE6 {5.88,5.66,5.45,5.24,5.05};
                 int ageInGroup = AGE6(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -962,13 +920,7 @@ public:
             }
             case 7:
             {
-                discrete_distribution<int> AGE7;
-                if(event=="death"){
-                    AGE7 = {366.75,371.43,375.94,380.28,384.45};
-                }
-                else if(event=="age"){
-                    AGE7 = {4.86,4.68,4.51,4.34,4.18};
-                }
+                discrete_distribution<int> AGE7 {4.86,4.68,4.51,4.34,4.18};
                 int ageInGroup = AGE7(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -993,13 +945,7 @@ public:
             }
             case 8:
             {
-                discrete_distribution<int> AGE8;
-                if(event=="death"){
-                    AGE8 = {388.47,392.35,396.07,399.66,403.12};
-                }
-                else if(event=="age"){
-                    AGE8 = {4.02,3.87,3.73,3.59,3.46};
-                }
+                discrete_distribution<int> AGE8 {4.02,3.87,3.73,3.59,3.46};
                 int ageInGroup = AGE8(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1024,13 +970,7 @@ public:
             }
             case 9:
             {
-                discrete_distribution<int> AGE9;
-                if(event=="death"){
-                    AGE9 = {406.44,409.65,412.73,415.70,418.56};
-                }
-                else if(event=="age"){
-                    AGE9 = {3.33,3.20,3.08,2.97,2.86};
-                }
+                discrete_distribution<int> AGE9 {3.33,3.20,3.08,2.97,2.86};
                 int ageInGroup = AGE9(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1055,13 +995,7 @@ public:
             }
             case 10:
             {
-                discrete_distribution<int> AGE10;
-                if(event=="death"){
-                    AGE10 = {421.31,423.96,426.51,428.97,431.33};
-                }
-                else if(event=="age"){
-                    AGE10 = {2.75,2.65,2.55,2.46,2.36};
-                }
+                discrete_distribution<int> AGE10 {2.75,2.65,2.55,2.46,2.36};
                 int ageInGroup = AGE10(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1086,13 +1020,7 @@ public:
             }
             case 11:
             {
-                discrete_distribution<int> AGE11;
-                if(event=="death"){
-                    AGE11 = {433.61,435.80,437.91,439.94,441.90};
-                }
-                else if(event=="age"){
-                    AGE11 = {2.28,2.19,2.11,2.03,1.96};
-                }
+                discrete_distribution<int> AGE11 {2.28,2.19,2.11,2.03,1.96};
                 int ageInGroup = AGE11(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1117,13 +1045,7 @@ public:
             }
             case 12:
             {
-                discrete_distribution<int> AGE12;
-                if(event=="death"){
-                    AGE12 = {443.79,445.60,447.34,449.03,450.64};
-                }
-                else if(event=="age"){
-                    AGE12 = {1.88,1.81,1.75,1.68,1.62};
-                }
+                discrete_distribution<int> AGE12 {1.88,1.81,1.75,1.68,1.62};
                 int ageInGroup = AGE12(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1148,13 +1070,7 @@ public:
             }
             case 13:
             {
-                discrete_distribution<int> AGE13;
-                if(event=="death"){
-                    AGE13 = {452.20,453.70,455.15,456.54,457.88};
-                }
-                else if(event=="age"){
-                    AGE13 = {1.56,1.50,1.44,1.39,1.34};
-                }
+                discrete_distribution<int> AGE13 {1.56,1.50,1.44,1.39,1.34};
                 int ageInGroup = AGE13(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1179,13 +1095,7 @@ public:
             }
             case 14:
             {
-                discrete_distribution<int> AGE14;
-                if(event=="death"){
-                    AGE14 = {459.17,460.41,461.60,462.75,463.86};
-                }
-                else if(event=="age"){
-                    AGE14 = {1.29,1.24,1.20,1.15,1.11};
-                }
+                discrete_distribution<int> AGE14 {1.29,1.24,1.20,1.15,1.11};
                 int ageInGroup = AGE14(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1210,13 +1120,7 @@ public:
             }
             case 15:
             {
-                discrete_distribution<int> AGE15;
-                if(event=="death"){
-                    AGE15 = {464.93,465.96,466.94,467.90,468.81};
-                }
-                else if(event=="age"){
-                    AGE15 = {1.07,1.03,0.99,0.95,0.92};
-                }
+                discrete_distribution<int> AGE15 {1.07,1.03,0.99,0.95,0.92};
                 int ageInGroup = AGE15(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1241,13 +1145,7 @@ public:
             }
             case 16:
                 {
-                    discrete_distribution<int> AGE16;
-                    if(event=="death"){
-                        AGE16 = {469.69,470.54,471.36,472.15,472.91};
-                    }
-                    else if(event=="age"){
-                        AGE16 = {0.88,0.85,0.82,0.79,0.76};
-                    }
+                    discrete_distribution<int> AGE16 {0.88,0.85,0.82,0.79,0.76};
                     int ageInGroup = AGE16(rng);
                     switch (ageInGroup) {
                         case 0:
@@ -1272,13 +1170,7 @@ public:
                 }
             case 17:
             {
-                discrete_distribution<int> AGE17;
-                if(event=="death"){
-                    AGE17 = {473.64,474.34,475.02,475.67,476.30};
-                }
-                else if(event=="age"){
-                    AGE17 = {0.73,0.70,0.68,0.65,0.63};
-                }
+                discrete_distribution<int> AGE17 {0.73,0.70,0.68,0.65,0.63};
                 int ageInGroup = AGE17(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1303,13 +1195,7 @@ public:
             }
             case 18:
             {
-                discrete_distribution<int> AGE18;
-                if(event=="death"){
-                    AGE18 = {476.90,477.48,478.04,478.58,479.10};
-                }
-                else if(event=="age"){
-                    AGE18 = {0.60,0.58,0.56,0.54,0.52};
-                }
+                discrete_distribution<int> AGE18 {0.60,0.58,0.56,0.54,0.52};
                 int ageInGroup = AGE18(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1334,13 +1220,7 @@ public:
             }
             case 19:
             {
-                discrete_distribution<int> AGE19;
-                if(event=="death"){
-                    AGE19 = {479.60,480.08,480.54,480.99,481.42};
-                }
-                else if(event=="age"){
-                    AGE19 = {0.50,0.48,0.46,0.45,0.43};
-                }
+                discrete_distribution<int> AGE19 {0.50,0.48,0.46,0.45,0.43};
                 int ageInGroup = AGE19(rng);
                 switch (ageInGroup) {
                     case 0:
@@ -1509,7 +1389,7 @@ public:
                 break;
             }
         }
-        /*int age;
+        int age;
         switch (deathAgeGroup) {
             case 0:
             {
@@ -2015,10 +1895,10 @@ public:
                 cout<<"in default\n";
                 age = 1000000;
                 break;
-        }*/
-        int deathAge = chooseAge(deathAgeGroup,"death");
-        int deathTime = deathAge - p->getAge();
-        //int deathTime = age - p->getAge();
+        }
+        //int deathAge = chooseAge(deathAgeGroup);
+        //int deathTime = deathAge - p->getAge();
+        int deathTime = age - p->getAge();
         /*if(age + p->getAge() > 99){
             cout<<"death age "<<age<<"\n";
             cout<<"age "<<p->getAge()<<"\n";
@@ -2039,7 +1919,7 @@ public:
         assert(deathTime + p->getAge() <=99);
         double Td;
         if(deathTime < 0){
-            Td = Now+.01;
+            Td = Now;
         }
         else{
             Td = deathTime + Now;
@@ -2158,6 +2038,9 @@ public:
     }
     
     void deathEvent(Person* p){
+        if(p->getIndex()==7){
+            cout<<"person 7 has died at time "<<Now<<"\n";
+        }
         numDeaths++;
         numBirths++;
         switch (p->getInfectionStatus()) {
@@ -2181,9 +2064,8 @@ public:
         }
         sheddingPeople.erase(p);
         p->reset(waningImmunityScenario);
-        p->setBirthTime(Now);//this will be used to determine if events are old or new
+        p->setBirthTime(Now+0.01);//this will be used to determine if events are old or new
         deathTime(p);
-        p->setPreviousAgingTime(Now);
         agingTime(p);
     }
     
@@ -2197,7 +2079,14 @@ public:
     }
     
     void agingTime(Person* p){
-        EventQ.emplace(Now + 1.0, AGING,p);
+        p->setAgeEventTime(p->getBirthtime());
+        if(p->getIndex()==7){
+            cout<<"Now "<<Now<<"\n";
+            cout<<"next aging time "<<Now+1.0<<"\n";
+            cout<<"aging event time now "<<p->getAgeEventTime()<<"\n";
+            cout<<"birth time "<<p->getBirthtime()<<"\n";
+        }
+        EventQ.emplace((double)(Now + 1.0), AGING,p);
         event_counter[AGING]++;
     }
 
@@ -2264,11 +2153,15 @@ public:
             sheddingPeople.insert(individual);
         }
         else if(event.type == AGING){
-        if(individual->getPreviousAgingTime()<=Now-1.0){
+            if(individual->getIndex()==7){
+                cout<<"current age for person 7 in aging function "<<individual->getAge()<<"\n";
+                cout<<"birth time "<<individual->getBirthtime()<<"\n";
+                cout<<"age event time "<<individual->getAgeEventTime()<<"\n";
+            }
+        if(individual->getBirthtime() < individual->getAgeEventTime()){
             agingTime(individual);//sets next time to age
             individual->setAge(individual->getAge() + 1);
-            individual->setPreviousAgingTime(Now);
-        
+        }
             //sets age class - may be useful later
             if(individual->getAge()<=5){
                 individual->setAgeClass(AGE5);
@@ -2279,7 +2172,6 @@ public:
             else{
                 individual->setAgeClass(AGE100);
             }
-        }
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);
