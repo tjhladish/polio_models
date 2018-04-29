@@ -22,6 +22,7 @@
 #include <time.h>
 #include <math.h>
 #include <limits>
+#include <numeric>
 #include "EventDriven_parameters.hpp"
 
 
@@ -51,6 +52,7 @@ private:
     double m_timetoDeath=0.0;
     double m_timetoBirth=0.0;
 
+
     //General attributes
     InfectionStatus m_infectionStatus;
     int m_numInfectionsDC; //DC means direct contact
@@ -59,6 +61,7 @@ private:
     double m_timeToShed;
     int m_age;
     AgeClass m_ageClass;
+    double m_previousAgingTime = 0.0;
 
     //Teunis specific attributes
     double m_durationInfection;
@@ -88,6 +91,12 @@ public:
     }
     void setAgeClass(AgeClass a){
         m_ageClass = a;
+    }
+    void setPreviousAgingTime(double time){
+        m_previousAgingTime = time;
+    }
+    double getPreviousAgingTime(){
+        return m_previousAgingTime;
     }
     int getNumInfectionsDC(){
         return m_numInfectionsDC;
@@ -311,11 +320,6 @@ public:
         antTit50={0};
         antTit100={0};
         antTit2048={0};
-        /*age014 ={0};
-        age1524 = {0};
-        age2554 = {0};
-        age5564 = {0};
-        age65 = {0};*/
         ageDist = {0};
         event_counter = vector<int>(NUM_OF_EVENT_TYPES, 0);
         numBirths=0;
@@ -352,7 +356,7 @@ public:
 
     //containers to keep track of various pieces of information
     vector<Person*> people;
-    priority_queue<Event, vector<Event>, compTime > EventQ;
+    priority_queue<Event, vector<Event>, compTime> EventQ;
     unordered_set<Person*> sheddingPeople;
     vector<int> ageAtFirstInfect;
 
@@ -381,11 +385,6 @@ public:
     vector<double> antTit100;
     vector<double> antTit2048;
     vector<int> ageDist;
-    /*vector<double> age014;
-    vector<double> age1524;
-    vector<double> age2554;
-    vector<double> age5564;
-    vector<double> age65;*/
 
 
     //used to keep track of number of events that occur
@@ -402,48 +401,117 @@ public:
 
 
     void runSimulation(){
-        /*IDCvec[0] = IDCsum;
+        IDCvec[0] = IDCsum;
         IEvec[0] = IEsum;
         NonInfvec[0] = NonInfsum;
-        timevec[0]=0;*/
+        timevec[0]=0;
 
         while(nextEvent() and EventQ.top().time < maxRunTime) {
         }
         if(EventQ.top().time >= maxRunTime){
-            /*int Age014 = 0;
-            int Age1524=0;
-            int Age2554=0;
-            int Age5564=0;
-            int Age65=0;
+            int Age_00_04   = 0;
+            int Age_05_09   = 0;
+            int Age_10_14   = 0;
+            int Age_15_19   = 0;
+            int Age_20_24   = 0;
+            int Age_25_29   = 0;
+            int Age_30_34   = 0;
+            int Age_35_39   = 0;
+            int Age_40_44   = 0;
+            int Age_45_49   = 0;
+            int Age_50_54   = 0;
+            int Age_55_59   = 0;
+            int Age_60_64   = 0;
+            int Age_65_69   = 0;
+            int Age_70_74   = 0;
+            int Age_75_79   = 0;
+            int Age_80_84   = 0;
+            int Age_85_89   = 0;
+            int Age_90_94   = 0;
+            int Age_95_99   = 0;
             for(Person* p: people){
-                if(p->getAge()<=14){
-                    Age014++;
+                if(p->getAge()<=4){
+                    Age_00_04++;
+                }
+                else if(p->getAge()<=9){
+                    Age_05_09++;
+                }
+                else if(p->getAge()<=14){
+                    Age_10_14++;
+                }
+                else if(p->getAge()<=19){
+                    Age_15_19++;
                 }
                 else if(p->getAge()<=24){
-                    Age1524++;
+                    Age_20_24++;
+                }
+                else if(p->getAge()<=29){
+                    Age_25_29++;
+                }
+                else if(p->getAge()<=34){
+                    Age_30_34++;
+                }
+                else if(p->getAge()<=39){
+                    Age_35_39++;
+                }
+                else if(p->getAge()<=44){
+                    Age_40_44++;
+                }
+                else if(p->getAge()<=49){
+                    Age_45_49++;
                 }
                 else if(p->getAge()<=54){
-                    Age2554++;
+                    Age_50_54++;
+                }
+                else if(p->getAge()<=59){
+                    Age_55_59++;
                 }
                 else if(p->getAge()<=64){
-                    Age5564++;
+                    Age_60_64++;
+                }
+                else if(p->getAge()<=69){
+                    Age_65_69++;
+                }
+                else if(p->getAge()<=74){
+                    Age_70_74++;
+                }
+                else if(p->getAge()<=79){
+                    Age_75_79++;
+                }
+                else if(p->getAge()<=84){
+                    Age_80_84++;
+                }
+                else if(p->getAge()<=89){
+                    Age_85_89++;
+                }
+                else if(p->getAge()<=94){
+                    Age_90_94++;
                 }
                 else{
-                    Age65++;
+                    Age_95_99++;
                 }
             }
-            ageDist.resize(5);
-            ageDist[0] = Age014;
-            ageDist[1] = Age1524;
-            ageDist[2] = Age2554;
-            ageDist[3] = Age5564;
-            ageDist[4] = Age65;*/
-            /*cout<<"ending age dist:\n";
-            cout<<"num 0-14 "<<Age014<<"\n";
-            cout<<"num 15-24 "<<Age1524<<"\n";
-            cout<<"num 25-54 "<<Age2554<<"\n";
-            cout<<"num 55-64 "<<Age5564<<"\n";
-            cout<<"num 65+ "<<Age65<<"\n";*/
+            ageDist.resize(20);
+            ageDist[0] = Age_00_04;
+            ageDist[1] = Age_05_09;
+            ageDist[2] = Age_10_14;
+            ageDist[3] = Age_15_19;
+            ageDist[4] = Age_20_24;
+            ageDist[5] = Age_25_29;
+            ageDist[6] = Age_30_34;
+            ageDist[7] = Age_35_39;
+            ageDist[8] = Age_40_44;
+            ageDist[9] = Age_45_49;
+            ageDist[10] = Age_50_54;
+            ageDist[11] = Age_55_59;
+            ageDist[12] = Age_60_64;
+            ageDist[13] = Age_65_69;
+            ageDist[14] = Age_70_74;
+            ageDist[15] = Age_75_79;
+            ageDist[16] = Age_80_84;
+            ageDist[17] = Age_85_89;
+            ageDist[18] = Age_90_94;
+            ageDist[19] = Age_95_99;
         }
     }
 
@@ -451,80 +519,55 @@ public:
         int TiterLevel50=0;
         int TiterLevel100=0;
         int TiterLevel2048=0;
-        int Age014 = 0;
-        int Age1524=0;
-        int Age2554=0;
-        int Age5564=0;
-        int Age65=0;
+        int Age_00_04   = 0;
+        int Age_05_09   = 0;
+        int Age_10_14   = 0;
+        int Age_15_19   = 0;
+        int Age_20_24   = 0;
+        int Age_25_29   = 0;
+        int Age_30_34   = 0;
+        int Age_35_39   = 0;
+        int Age_40_44   = 0;
+        int Age_45_49   = 0;
+        int Age_50_54   = 0;
+        int Age_55_59   = 0;
+        int Age_60_64   = 0;
+        int Age_65_69   = 0;
+        int Age_70_74   = 0;
+        int Age_75_79   = 0;
+        int Age_80_84   = 0;
+        int Age_85_89   = 0;
+        int Age_90_94   = 0;
+        int Age_95_99   = 0;
 
         for(Person* p: people) {
 
-            //age distribution based on Pakistan data (indexmundi.com)
-            //age buckets: 0-14, 15-24, 25-54, 55-64, 65+
-            discrete_distribution<int> age {0.3199,0.2131,0.3687,0.0543,0.044};
+            //age distribution based on Pakistan data (pbs.gov.pk - last updated 4/18/18)
+            //5 year age buckets
+            //age distribution within age buckets taken from fitting age distribution to exponential function
+            discrete_distribution<int> age {18.33,15.16,12.54,10.38,8.58,7.10,5.88,4.86,4.02,3.33,2.75,2.28,1.88,1.56,1.29,1.07,0.88,0.73,0.60,0.50};
             int personAge = age(rng);
-            switch (personAge) {
-                case 0:
-                {
-                    uniform_int_distribution<int> AGE0(0,14);
-                    p->setAge(AGE0(rng));
-
-                    //define age class membership
-                    if(p->getAge()<=5){
-                        p->setAgeClass(AGE5);
-                    }
-                    else{
-                        p->setAgeClass(AGE15);
-                    }
-                    break;
-                }
-                case 1:
-                {
-                    uniform_int_distribution<int> AGE1(15,24);
-                    p->setAge(AGE1(rng));
-
-                    //define age class membership
-                    if(p->getAge()==15){
-                        p->setAgeClass(AGE15);
-                    }
-                    else{
-                        p->setAgeClass(AGE100);
-                    }
-                    break;
-                }
-                case 2:
-                {
-                    uniform_int_distribution<int> AGE2(25,54);
-                    p->setAge(AGE2(rng));
-                    p->setAgeClass(AGE100);
-                    break;
-                }
-                case 3:
-                {
-                    uniform_int_distribution<int> AGE3(55,64);
-                    p->setAge(AGE3(rng));
-                    p->setAgeClass(AGE100);
-                    break;
-                }
-                case 4:
-                {
-                    uniform_int_distribution<int> AGE4(65,85);
-                    p->setAge(AGE4(rng));
-                    p->setAgeClass(AGE100);
-                    break;
-                }
+            p->setAge(chooseAge(personAge,"age"));
+            if(p->getAge()<=5){
+                p->setAgeClass(AGE5);
             }
-            ageSum+=p->getAge();
+            else if(p->getAge()<=15){
+                p->setAgeClass(AGE15);
+            }
+            else{
+                p->setAgeClass(AGE100);
+            }
+
             p->setInfectionStatus(NA);
             p->setInitialTiterLevel(maxTiter);
             p->setTimeAtInfection(numeric_limits<double>::max());
             p->setBirthTime(Now);//used to distinguish between old and new events
             deathTime(p);
             
-            //set aging -- occurs yearly
-            //random so that all individuals aren't aging at the same time
-            double agingYear = unif_real(rng);
-            EventQ.emplace(agingYear,AGING,p);
+            //double agingYear = unif_real(rng);
+            //p->setAgeEventTime(Now);
+            p->setPreviousAgingTime(Now);
+            EventQ.emplace(Now+1.0,AGING,p);
             event_counter[AGING]++;
 
             //set environment contact--occurs daily
@@ -534,20 +577,65 @@ public:
             event_counter[ENVIRONMENT_CONTACT]++;
             
             //beginning age distribution
-            if(p->getAge()<=14){
-                Age014++;
+            if(p->getAge()<=4){
+                Age_00_04++;
+            }
+            else if(p->getAge()<=9){
+                Age_05_09++;
+            }
+            else if(p->getAge()<=14){
+                Age_10_14++;
+            }
+            else if(p->getAge()<=19){
+                Age_15_19++;
             }
             else if(p->getAge()<=24){
-                Age1524++;
+                Age_20_24++;
+            }
+            else if(p->getAge()<=29){
+                Age_25_29++;
+            }
+            else if(p->getAge()<=34){
+                Age_30_34++;
+            }
+            else if(p->getAge()<=39){
+                Age_35_39++;
+            }
+            else if(p->getAge()<=44){
+                Age_40_44++;
+            }
+            else if(p->getAge()<=49){
+                Age_45_49++;
             }
             else if(p->getAge()<=54){
-                Age2554++;
+                Age_50_54++;
+            }
+            else if(p->getAge()<=59){
+                Age_55_59++;
             }
             else if(p->getAge()<=64){
-                Age5564++;
+                Age_60_64++;
+            }
+            else if(p->getAge()<=69){
+                Age_65_69++;
+            }
+            else if(p->getAge()<=74){
+                Age_70_74++;
+            }
+            else if(p->getAge()<=79){
+                Age_75_79++;
+            }
+            else if(p->getAge()<=84){
+                Age_80_84++;
+            }
+            else if(p->getAge()<=89){
+                Age_85_89++;
+            }
+            else if(p->getAge()<=94){
+                Age_90_94++;
             }
             else{
-                Age65++;
+                Age_95_99++;
             }
 
             //antibody titer level distribution
@@ -581,17 +669,12 @@ public:
         EventQ.emplace(chkEnv,CHECK_ENVIRONMENT,nullptr);
         event_counter[CHECK_ENVIRONMENT]++;
         
-        meanAge = ageSum/people.size();
+        //meanAge = ageSum/people.size();
 
         antTit50[0]=TiterLevel50;
         antTit100[0]=TiterLevel100;
         antTit2048[0]=TiterLevel2048;
-        /*cout<<"beginning age dist:\n";
-        cout<<"num 0-14 "<<Age014<<"\n";
-        cout<<"num 15-24 "<<Age1524<<"\n";
-        cout<<"num 25-54 "<<Age2554<<"\n";
-        cout<<"num 55-64 "<<Age5564<<"\n";
-        cout<<"num 65+ "<<Age65<<"\n";*/
+        cout<<"num 95+ "<<Age_95_99<<"\n";
     }
 
     //use these functions to retrieve end of simulation data
@@ -657,6 +740,38 @@ public:
     int numInfE(){
         return IEsum;
     }
+    
+    int chooseAge(int personAge,string event){
+        int age;
+        vector<double> ageVec = {0,0,0,0,0};
+        double ageVecSum = 0.0;
+        int index = 0;
+        //use person age to find the age group and put those weights into ageVec
+        for(unsigned int i = 0; i < numAgeBuckets; i++){
+            index = personAge*numAgeBuckets + i;
+            if(event=="death"){
+                ageVec[i] = age_Death[index];
+            }
+            else if(event=="age"){
+                ageVec[i] = age_Aging[index];
+            }
+            ageVecSum +=ageVec[i];
+        }
+        //choose age withing age group
+        double rand = unif_real(rng);
+        double ageCumSum = 0.0;
+        int ageGroupIndex = 0;
+        for(unsigned int i = 0; i < ageVec.size(); i++){
+            ageCumSum += ageVec[i];
+            if(rand < (ageCumSum/ageVecSum)){
+                ageGroupIndex = i;
+            }
+        }
+        age = personAge*numAgeBuckets + ageGroupIndex;
+        ageVec.clear();
+        return age;
+    }
+    
     void infectByDirectContactFamulare(Person* p) {
 
         //update number of infections
@@ -786,15 +901,25 @@ public:
 
     void deathTime(Person* p){
         
-        double death_rate = 1.0/50.0;
-        exponential_distribution<double> exp_death(death_rate);
-        double deathTime = exp_death(rng);
-        if((deathTime + p->getAge()) > maxAge){
-            deathTime = maxAge - p->getAge();
+        vector<double> deathCDF {0.178,0.324,0.446,0.546,0.630,0.698,0.755,0.802,0.841,0.874,0.900,0.922,0.941,0.956,0.968,0.979,0.987,0.994,1.000};
+        double rand = unif_real(rng);
+        int deathAgeGroup;//do i want to put a default value just in case?
+        for(unsigned int i = 0; i < deathCDF.size(); i++){
+            if(rand < deathCDF[i]){
+                deathAgeGroup = i;
+                break;
+            }
         }
-        double Td = deathTime + Now;
-        
-        //p->setDeathTime(Td);
+        int deathAge = chooseAge(deathAgeGroup,"death");
+        int deathTime = deathAge - p->getAge();
+        assert(deathTime + p->getAge() <=99);
+        double Td;
+        if(deathTime < 0){
+            Td = Now+.01;
+        }
+        else{
+            Td = deathTime + Now;
+        }
         EventQ.emplace(Td,DEATH,p);
         event_counter[DEATH]++;
         return;
@@ -929,9 +1054,8 @@ public:
         sheddingPeople.erase(p);
         p->reset(waningImmunityScenario);
         p->setBirthTime(Now);//this will be used to determine if events are old or new
-        
         deathTime(p);
-        
+        p->setPreviousAgingTime(Now);
         agingTime(p);
     }
     
@@ -945,7 +1069,7 @@ public:
     }
     
     void agingTime(Person* p){
-        EventQ.emplace(Now + 1.0, AGING, p);
+        EventQ.emplace(Now + 1.0, AGING,p);
         event_counter[AGING]++;
     }
 
@@ -1011,9 +1135,23 @@ public:
         else if(event.type == BEGIN_SHEDDING and individual->getInfectionStatus()!=NA){
             sheddingPeople.insert(individual);
         }
-        else if(event.type == AGING and individual->getBirthtime()<=Now-1.0){
+        else if(event.type == AGING){
+        if(individual->getPreviousAgingTime()<=Now-1.0){
             agingTime(individual);//sets next time to age
             individual->setAge(individual->getAge() + 1);
+            individual->setPreviousAgingTime(Now);
+        
+            //sets age class - may be useful later
+            if(individual->getAge()<=5){
+                individual->setAgeClass(AGE5);
+            }
+            else if(individual->getAge()<=15){
+                individual->setAgeClass(AGE15);
+            }
+            else{
+                individual->setAgeClass(AGE100);
+            }
+        }
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);
