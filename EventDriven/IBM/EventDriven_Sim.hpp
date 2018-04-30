@@ -397,7 +397,6 @@ public:
     double delta;
     
     double ageSum;
-    double meanAge;//used for determining death times
 
 
     void runSimulation(){
@@ -408,137 +407,18 @@ public:
 
         while(nextEvent() and EventQ.top().time < maxRunTime) {
         }
-        if(EventQ.top().time >= maxRunTime){
-            int Age_00_04   = 0;
-            int Age_05_09   = 0;
-            int Age_10_14   = 0;
-            int Age_15_19   = 0;
-            int Age_20_24   = 0;
-            int Age_25_29   = 0;
-            int Age_30_34   = 0;
-            int Age_35_39   = 0;
-            int Age_40_44   = 0;
-            int Age_45_49   = 0;
-            int Age_50_54   = 0;
-            int Age_55_59   = 0;
-            int Age_60_64   = 0;
-            int Age_65_69   = 0;
-            int Age_70_74   = 0;
-            int Age_75_79   = 0;
-            int Age_80_84   = 0;
-            int Age_85_89   = 0;
-            int Age_90_94   = 0;
-            int Age_95_99   = 0;
+        /*if(EventQ.top().time >= maxRunTime){
             for(Person* p: people){
-                if(p->getAge()<=4){
-                    Age_00_04++;
-                }
-                else if(p->getAge()<=9){
-                    Age_05_09++;
-                }
-                else if(p->getAge()<=14){
-                    Age_10_14++;
-                }
-                else if(p->getAge()<=19){
-                    Age_15_19++;
-                }
-                else if(p->getAge()<=24){
-                    Age_20_24++;
-                }
-                else if(p->getAge()<=29){
-                    Age_25_29++;
-                }
-                else if(p->getAge()<=34){
-                    Age_30_34++;
-                }
-                else if(p->getAge()<=39){
-                    Age_35_39++;
-                }
-                else if(p->getAge()<=44){
-                    Age_40_44++;
-                }
-                else if(p->getAge()<=49){
-                    Age_45_49++;
-                }
-                else if(p->getAge()<=54){
-                    Age_50_54++;
-                }
-                else if(p->getAge()<=59){
-                    Age_55_59++;
-                }
-                else if(p->getAge()<=64){
-                    Age_60_64++;
-                }
-                else if(p->getAge()<=69){
-                    Age_65_69++;
-                }
-                else if(p->getAge()<=74){
-                    Age_70_74++;
-                }
-                else if(p->getAge()<=79){
-                    Age_75_79++;
-                }
-                else if(p->getAge()<=84){
-                    Age_80_84++;
-                }
-                else if(p->getAge()<=89){
-                    Age_85_89++;
-                }
-                else if(p->getAge()<=94){
-                    Age_90_94++;
-                }
-                else{
-                    Age_95_99++;
-                }
+                ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
             }
-            ageDist.resize(20);
-            ageDist[0] = Age_00_04;
-            ageDist[1] = Age_05_09;
-            ageDist[2] = Age_10_14;
-            ageDist[3] = Age_15_19;
-            ageDist[4] = Age_20_24;
-            ageDist[5] = Age_25_29;
-            ageDist[6] = Age_30_34;
-            ageDist[7] = Age_35_39;
-            ageDist[8] = Age_40_44;
-            ageDist[9] = Age_45_49;
-            ageDist[10] = Age_50_54;
-            ageDist[11] = Age_55_59;
-            ageDist[12] = Age_60_64;
-            ageDist[13] = Age_65_69;
-            ageDist[14] = Age_70_74;
-            ageDist[15] = Age_75_79;
-            ageDist[16] = Age_80_84;
-            ageDist[17] = Age_85_89;
-            ageDist[18] = Age_90_94;
-            ageDist[19] = Age_95_99;
-        }
+        }*/
     }
 
     void randomizePopulation(int infected){
         int TiterLevel50=0;
         int TiterLevel100=0;
         int TiterLevel2048=0;
-        int Age_00_04   = 0;
-        int Age_05_09   = 0;
-        int Age_10_14   = 0;
-        int Age_15_19   = 0;
-        int Age_20_24   = 0;
-        int Age_25_29   = 0;
-        int Age_30_34   = 0;
-        int Age_35_39   = 0;
-        int Age_40_44   = 0;
-        int Age_45_49   = 0;
-        int Age_50_54   = 0;
-        int Age_55_59   = 0;
-        int Age_60_64   = 0;
-        int Age_65_69   = 0;
-        int Age_70_74   = 0;
-        int Age_75_79   = 0;
-        int Age_80_84   = 0;
-        int Age_85_89   = 0;
-        int Age_90_94   = 0;
-        int Age_95_99   = 0;
+        ageDist.resize(numAgeGroups);
 
         for(Person* p: people) {
 
@@ -548,6 +428,7 @@ public:
             discrete_distribution<int> age {18.33,15.16,12.54,10.38,8.58,7.10,5.88,4.86,4.02,3.33,2.75,2.28,1.88,1.56,1.29,1.07,0.88,0.73,0.60,0.50};
             int personAge = age(rng);
             p->setAge(chooseAge(personAge,"age"));
+            ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
             if(p->getAge()<=5){
                 p->setAgeClass(AGE5);
             }
@@ -576,68 +457,6 @@ public:
             EventQ.emplace(envCon,ENVIRONMENT_CONTACT,p);
             event_counter[ENVIRONMENT_CONTACT]++;
             
-            //beginning age distribution
-            if(p->getAge()<=4){
-                Age_00_04++;
-            }
-            else if(p->getAge()<=9){
-                Age_05_09++;
-            }
-            else if(p->getAge()<=14){
-                Age_10_14++;
-            }
-            else if(p->getAge()<=19){
-                Age_15_19++;
-            }
-            else if(p->getAge()<=24){
-                Age_20_24++;
-            }
-            else if(p->getAge()<=29){
-                Age_25_29++;
-            }
-            else if(p->getAge()<=34){
-                Age_30_34++;
-            }
-            else if(p->getAge()<=39){
-                Age_35_39++;
-            }
-            else if(p->getAge()<=44){
-                Age_40_44++;
-            }
-            else if(p->getAge()<=49){
-                Age_45_49++;
-            }
-            else if(p->getAge()<=54){
-                Age_50_54++;
-            }
-            else if(p->getAge()<=59){
-                Age_55_59++;
-            }
-            else if(p->getAge()<=64){
-                Age_60_64++;
-            }
-            else if(p->getAge()<=69){
-                Age_65_69++;
-            }
-            else if(p->getAge()<=74){
-                Age_70_74++;
-            }
-            else if(p->getAge()<=79){
-                Age_75_79++;
-            }
-            else if(p->getAge()<=84){
-                Age_80_84++;
-            }
-            else if(p->getAge()<=89){
-                Age_85_89++;
-            }
-            else if(p->getAge()<=94){
-                Age_90_94++;
-            }
-            else{
-                Age_95_99++;
-            }
-
             //antibody titer level distribution
             if(p->getTiterLevel()<=50){
                 TiterLevel50++;
@@ -668,13 +487,10 @@ public:
         double chkEnv = unif_real(rng)/(double)12;
         EventQ.emplace(chkEnv,CHECK_ENVIRONMENT,nullptr);
         event_counter[CHECK_ENVIRONMENT]++;
-        
-        //meanAge = ageSum/people.size();
 
         antTit50[0]=TiterLevel50;
         antTit100[0]=TiterLevel100;
         antTit2048[0]=TiterLevel2048;
-        cout<<"num 95+ "<<Age_95_99<<"\n";
     }
 
     //use these functions to retrieve end of simulation data
@@ -747,8 +563,8 @@ public:
         double ageVecSum = 0.0;
         int index = 0;
         //use person age to find the age group and put those weights into ageVec
-        for(unsigned int i = 0; i < numAgeBuckets; i++){
-            index = personAge*numAgeBuckets + i;
+        for(int i = 0; i < lengthAgeBuckets; i++){
+            index = personAge*lengthAgeBuckets + i;
             if(event=="death"){
                 ageVec[i] = age_Death[index];
             }
@@ -767,7 +583,7 @@ public:
                 ageGroupIndex = i;
             }
         }
-        age = personAge*numAgeBuckets + ageGroupIndex;
+        age = personAge*lengthAgeBuckets + ageGroupIndex;
         ageVec.clear();
         return age;
     }
@@ -1052,7 +868,9 @@ public:
             }
         }
         sheddingPeople.erase(p);
+        ageDist[(int)(p->getAge()/lengthAgeBuckets)]--;
         p->reset(waningImmunityScenario);
+        ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
         p->setBirthTime(Now);//this will be used to determine if events are old or new
         deathTime(p);
         p->setPreviousAgingTime(Now);
@@ -1140,7 +958,11 @@ public:
             agingTime(individual);//sets next time to age
             individual->setAge(individual->getAge() + 1);
             individual->setPreviousAgingTime(Now);
-        
+            if((int)(individual->getAge()/lengthAgeBuckets) > (int)((individual->getAge()-1)/lengthAgeBuckets) and individual->getAge()-1 >=0){
+                ageDist[(int)(individual->getAge()/lengthAgeBuckets)]++;
+                ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]--;
+            }
+            assert(ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]>=0);
             //sets age class - may be useful later
             if(individual->getAge()<=5){
                 individual->setAgeClass(AGE5);
