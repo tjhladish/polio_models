@@ -558,33 +558,16 @@ public:
     }
     
     int chooseAge(int personAge,string event){
-        int age;
-        vector<double> ageVec = {0,0,0,0,0};
-        double ageVecSum = 0.0;
-        int index = 0;
-        //use person age to find the age group and put those weights into ageVec
-        for(int i = 0; i < lengthAgeBuckets; i++){
-            index = personAge*lengthAgeBuckets + i;
-            if(event=="death"){
-                ageVec[i] = age_Death[index];
-            }
-            else if(event=="age"){
-                ageVec[i] = age_Aging[index];
-            }
-            ageVecSum +=ageVec[i];
+        int ageGroupIndex;
+        if(event=="death"){
+            discrete_distribution<int> ageVec(age_Death[personAge].begin(),age_Death[personAge].end());
+            ageGroupIndex = ageVec(rng);
         }
-        //choose age withing age group
-        double rand = unif_real(rng);
-        double ageCumSum = 0.0;
-        int ageGroupIndex = 0;
-        for(unsigned int i = 0; i < ageVec.size(); i++){
-            ageCumSum += ageVec[i];
-            if(rand < (ageCumSum/ageVecSum)){
-                ageGroupIndex = i;
-            }
+        else if(event=="age"){
+            discrete_distribution<int> ageVec(age_Aging[personAge].begin(),age_Aging[personAge].end());
+            ageGroupIndex = ageVec(rng);
         }
-        age = personAge*lengthAgeBuckets + ageGroupIndex;
-        ageVec.clear();
+        int age = personAge*lengthAgeBuckets + ageGroupIndex;
         return age;
     }
     
