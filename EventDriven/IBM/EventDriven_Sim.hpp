@@ -73,7 +73,7 @@ private:
 
 public:
     //default constructor
-    Person(int idx, double initialTiterLevel = 1.0, double titerLevel=1.0, double timeAtInfection=numeric_limits<double>::max(), InfectionStatus infStat = NA, int numInf=0, int numInfEnv=0, double timeToShed = 0.0, int age =0.0, AgeClass a = AGE5, double durInf=0, double intPat = 0.0, double intAnt=1.0, double pkAnt=1.0, double antLvl = 1.0, double patLvl = 0.0):m_initialTiterLevel(initialTiterLevel), m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection), m_infectionStatus(infStat),m_numInfectionsDC(numInf),m_numInfectionsEnv(numInfEnv),m_index(idx), m_timeToShed(timeToShed), m_age(age), m_ageClass(a), m_durationInfection(durInf), m_initialPathogen(intPat), m_initialAntibody(intAnt), m_peakAntibody(pkAnt), m_antibodyLevel(antLvl), m_pathogenLevel(patLvl){
+    Person(int idx, double initialTiterLevel = 1.0, double titerLevel=1.0, double timeAtInfection=numeric_limits<double>::max(), InfectionStatus infStat = NA, int numInf=0, int numInfEnv=0, double timeToShed = numeric_limits<double>::max(), int age =0.0, AgeClass a = AGE5, double durInf=0, double intPat = 0.0, double intAnt=1.0, double pkAnt=1.0, double antLvl = 1.0, double patLvl = 0.0):m_initialTiterLevel(initialTiterLevel), m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection), m_infectionStatus(infStat),m_numInfectionsDC(numInf),m_numInfectionsEnv(numInfEnv),m_index(idx), m_timeToShed(timeToShed), m_age(age), m_ageClass(a), m_durationInfection(durInf), m_initialPathogen(intPat), m_initialAntibody(intAnt), m_peakAntibody(pkAnt), m_antibodyLevel(antLvl), m_pathogenLevel(patLvl){
 
     }
     //General Functions
@@ -128,12 +128,6 @@ public:
     void setDeathTime(double dtime){
         m_timetoDeath = dtime;
     }
-    void setBirthTime(double btime){
-        m_timetoBirth = btime;
-    }
-    double getBirthtime(){
-        return m_timetoBirth;
-    }
     double getRecoveryTime(){
         return m_timeToRec;
     }
@@ -146,7 +140,7 @@ public:
         setInfectionStatus(NA);
         setAge(0);
         setAgeClass(AGE5);
-        setTimeToShed(0.0);
+        setTimeToShed(numeric_limits<double>::max());
         if(waningImmunityScenario==1){
             setInitialTiterLevel(minTiter);
             setTimeAtInfection(numeric_limits<double>::max());
@@ -310,6 +304,7 @@ public:
     // constructor
     EventDriven_MassAction_Sim(const int n, const double beta, const double death, const double maxRunTime, const int wanIm, const double virIntWat,int seed=(random_device())()): rng(seed), N(n), BETA(beta), DEATH_RATE(death), maxRunTime(maxRunTime), waningImmunityScenario(wanIm), propVirusinWater(virIntWat),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
         people = vector<Person*>(n);
+        deathTime = vector<double>(n);
         for (Person* &p: people) p = new Person(people_counter++);
         Now=0.0;
         ii=0;//counter for displaying events in queue
@@ -356,6 +351,7 @@ public:
 
     //containers to keep track of various pieces of information
     vector<Person*> people;
+    vector<double> deathTime;
     priority_queue<Event, vector<Event>, compTime> EventQ;
     unordered_set<Person*> sheddingPeople;
     vector<int> ageAtFirstInfect;
@@ -442,14 +438,15 @@ public:
             p->setInfectionStatus(NA);
             p->setInitialTiterLevel(maxTiter);
             p->setTimeAtInfection(numeric_limits<double>::max());
-            p->setBirthTime(Now);//used to distinguish between old and new events
-            deathTime(p);
+            deathTimeEvent(p);
             
-            //double agingYear = unif_real(rng);
-            //p->setAgeEventTime(Now);
+            //set aging time
             p->setPreviousAgingTime(Now);
-            EventQ.emplace(Now+1.0,AGING,p);
-            event_counter[AGING]++;
+            double nextAgeEvent = Now + 1.0;
+            //if(nextAgeEvent < deathTime[p->getIndex()]){
+                EventQ.emplace(nextAgeEvent,AGING,p);
+                event_counter[AGING]++;
+            //}
 
             //set environment contact--occurs daily
             //random so that at initialization everyone isn't contacting at exact same time
@@ -584,28 +581,29 @@ public:
         p->setTimeAtInfection(Now);
         p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
 
-        //time to shedding (able to cause infections)
-        double sheddingTime = Now + (1/(double)365);
-        EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);//assume shedding begins a day later--can't be instantaneous
-        event_counter[BEGIN_SHEDDING]++;
+        //set time to shedding (able to cause infections) if it occurs before death
+        double sheddingTime = Now + (1/(double)365);//assume shedding begins a day later--can't be instantaneous
         p->setTimeToShed(sheddingTime);
-
+        if(p->getTimeToShed()< deathTime[p->getIndex()]){
+            EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);
+            event_counter[BEGIN_SHEDDING]++;
+        }
         // time to next human-human contact
         exponential_distribution<double> exp_beta(BETA); //BETA is contact rate/individual/year
         double Tc = exp_beta(rng) + Now;
-
         while (p->probShedding(Tc)>WPVrecThresh) {
-            if(Tc > sheddingTime){//only make infectious contacts after shedding begins
+            if((Tc > sheddingTime) and (Tc < deathTime[p->getIndex()])){//only make infectious contacts after shedding begins and before death
                 EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
                 event_counter[INFECTIOUS_CONTACT]++;
             }
             Tc += exp_beta(rng);
         }
-        //time to recovery
+        //set time to recovery if it occurs before death
         double Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
-        p->setRecoveryTime(Tr);
-        EventQ.emplace(Tr,INFECTION_RECOVERY,p);
-        event_counter[INFECTION_RECOVERY]++;
+        if(Tr < deathTime[p->getIndex()]){
+            EventQ.emplace(Tr,INFECTION_RECOVERY,p);
+            event_counter[INFECTION_RECOVERY]++;
+        }
         return;
     }
     void infectByDirectContactTeunis(Person* p){
@@ -620,22 +618,26 @@ public:
         p->setInfectionStatus(IDC);
         p->setDurationInfection();
 
-        //time to shedding (able to cause infections)
+        //set time to shedding (able to cause infections) if it occurs before death
         double sheddingTime = Now + (1/(double)365);
-        EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);//assume shedding begins a day later
-        event_counter[BEGIN_SHEDDING]++;
+        if(sheddingTime < deathTime[p->getIndex()]){
+            EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);//assume shedding begins a day later
+            event_counter[BEGIN_SHEDDING]++;
+        }
         p->setTimeToShed(sheddingTime);//need to prevent simultaneous infections
 
-        //time to recovery
+        //set time to recovery if it occurs before death
         double Tr = p->getDurationInfection() + Now;
-        EventQ.emplace(Tr,INFECTION_RECOVERY,p);
-        event_counter[INFECTION_RECOVERY]++;
+        if(Tr < deathTime[p->getIndex()]){
+            EventQ.emplace(Tr,INFECTION_RECOVERY,p);
+            event_counter[INFECTION_RECOVERY]++;
+        }
 
         //time to next human-human contact
         exponential_distribution<double> exp_beta(BETA);
         double Tc = exp_beta(rng) + Now;
 
-        while (Tr>Tc) {
+        while ((Tr>Tc) and (Tc < deathTime[p->getIndex()])) {//if contact occurs before recovery and death
             EventQ.emplace(Tc, INFECTIOUS_CONTACT,p);
             event_counter[INFECTIOUS_CONTACT]++;
             Tc+=exp_beta(rng);
@@ -660,27 +662,31 @@ public:
         p->setTimeAtInfection(Now);
         p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
 
-        //time to shedding (able to cause infections)
-        double sheddingTime = Now + (1/(double)365);
-        EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);//assume shedding begins a day later--can't be instantaneous
-        event_counter[BEGIN_SHEDDING]++;
+        //set time to shedding (able to cause infections) if it occurs before death
+        double sheddingTime = Now + (1/(double)365);//assume shedding begins a day later--can't be instantaneous
         p->setTimeToShed(sheddingTime);
+        if(p->getTimeToShed() < deathTime[p->getIndex()]){
+            EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);
+            event_counter[BEGIN_SHEDDING]++;
+        }
 
         // time to next human-human contact
         exponential_distribution<double> exp_beta(BETA); //BETA is contact rate/individual/year
         double Tc = exp_beta(rng) + Now;
 
         while (p->probShedding(Tc)>WPVrecThresh) {
-            if(Tc > sheddingTime){//only make infectious contacts after shedding begins
+            if((Tc > sheddingTime) and (Tc < deathTime[p->getIndex()])){//only make infectious contacts after shedding begins and before death
                 EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
                 event_counter[INFECTIOUS_CONTACT]++;
             }
             Tc += exp_beta(rng);
         }
-        //time to recovery
+        //set time to recovery if it occurs before death
         double Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
-        EventQ.emplace(Tr,INFECTION_RECOVERY,p);
-        event_counter[INFECTION_RECOVERY]++;
+        if(Tr < deathTime[p->getIndex()]){
+            EventQ.emplace(Tr,INFECTION_RECOVERY,p);
+            event_counter[INFECTION_RECOVERY]++;
+        }
         return;
     }
 
@@ -698,9 +704,8 @@ public:
         return;
     }
 
-    void deathTime(Person* p){
+    void deathTimeEvent(Person* p){
         
-        vector<double> deathCDF {0.178,0.324,0.446,0.546,0.630,0.698,0.755,0.802,0.841,0.874,0.900,0.922,0.941,0.956,0.968,0.979,0.987,0.994,1.000};
         double rand = unif_real(rng);
         int deathAgeGroup;//do i want to put a default value just in case?
         for(unsigned int i = 0; i < deathCDF.size(); i++){
@@ -710,15 +715,16 @@ public:
             }
         }
         int deathAge = chooseAge(deathAgeGroup,"death");
-        int deathTime = deathAge - p->getAge();
-        assert(deathTime + p->getAge() <=99);
+        int timeToDeath = deathAge - p->getAge();
+        assert(timeToDeath + p->getAge() <=99);
         double Td;
-        if(deathTime < 0){
+        if(timeToDeath < 0){
             Td = Now+.01;
         }
         else{
-            Td = deathTime + Now;
+            Td = timeToDeath + Now;
         }
+        deathTime[p->getIndex()] = Td;
         EventQ.emplace(Td,DEATH,p);
         event_counter[DEATH]++;
         return;
@@ -732,9 +738,8 @@ public:
                 int contact_idx = unif_int(rng);
                 if(contact_idx >= p->getIndex()) contact_idx++;
                 Person* contact = people[contact_idx];
-                
                 //no simultaneous infections
-                if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
+                if((contact->getTimeToShed() < Now or contact->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(contact)==0){
                     
                     //wane immunity if applicable
                     if(contact->getTimeAtInfection()!=numeric_limits<double>::max()){
@@ -806,7 +811,7 @@ public:
         envDose = 2*virusCon; //2 is num L water drank per day
         
         //no simultaneous infections
-        if(p->getTimeToShed() < Now and sheddingPeople.count(p)==0){
+        if((p->getTimeToShed() < Now or p->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(p)==0){
             
             //check susceptibility
             double r2 = unif_real(rng);
@@ -822,9 +827,12 @@ public:
             environment+=gramsFeces*p->stoolViralLoad(Now);
         }
         
-        //set next time to contact environment
-        EventQ.emplace(Now + (1/(double)365),ENVIRONMENT_CONTACT,p);
-        event_counter[ENVIRONMENT_CONTACT]++;
+        //set next time to contact environment if it occurs before death
+        double nextEnvCon = Now + 1/(double)365;
+        if(nextEnvCon < deathTime[p->getIndex()]){
+            EventQ.emplace(nextEnvCon,ENVIRONMENT_CONTACT,p);
+            event_counter[ENVIRONMENT_CONTACT]++;
+        }
 
     }
     
@@ -854,8 +862,7 @@ public:
         ageDist[(int)(p->getAge()/lengthAgeBuckets)]--;
         p->reset(waningImmunityScenario);
         ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
-        p->setBirthTime(Now);//this will be used to determine if events are old or new
-        deathTime(p);
+        deathTimeEvent(p);
         p->setPreviousAgingTime(Now);
         agingTime(p);
     }
@@ -870,8 +877,11 @@ public:
     }
     
     void agingTime(Person* p){
-        EventQ.emplace(Now + 1.0, AGING,p);
-        event_counter[AGING]++;
+        double nextAgeEvent = Now + 1.0;
+        if(nextAgeEvent < deathTime[p->getIndex()]){
+            EventQ.emplace(nextAgeEvent, AGING,p);
+            event_counter[AGING]++;
+        }
     }
 
 
@@ -926,37 +936,40 @@ public:
         updateEnvironment(timeStep);
 
         Person* individual = event.person;
-        if(event.type==INFECTIOUS_CONTACT and sheddingPeople.count(individual)>0){
+        //if(event.type==INFECTIOUS_CONTACT and sheddingPeople.count(individual)>0){
+        if(event.type==INFECTIOUS_CONTACT){
             infectiousContact(individual);
 
         }
-        else if (event.type==INFECTION_RECOVERY and sheddingPeople.count(individual)>0) {
+        else if(event.type==INFECTION_RECOVERY){
+        //else if (event.type==INFECTION_RECOVERY and sheddingPeople.count(individual)>0) {
             infectionRecovery(individual);
         }
-        else if(event.type == BEGIN_SHEDDING and individual->getInfectionStatus()!=NA){
+        else if(event.type==BEGIN_SHEDDING){
+        //else if(event.type == BEGIN_SHEDDING and individual->getInfectionStatus()!=NA){
             sheddingPeople.insert(individual);
         }
         else if(event.type == AGING){
-        if(individual->getPreviousAgingTime()<=Now-1.0){
-            agingTime(individual);//sets next time to age
-            individual->setAge(individual->getAge() + 1);
-            individual->setPreviousAgingTime(Now);
-            if((int)(individual->getAge()/lengthAgeBuckets) > (int)((individual->getAge()-1)/lengthAgeBuckets) and individual->getAge()-1 >=0){
-                ageDist[(int)(individual->getAge()/lengthAgeBuckets)]++;
-                ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]--;
+            if(individual->getPreviousAgingTime()<=Now-1.0){
+                agingTime(individual);//sets next time to age
+                individual->setAge(individual->getAge() + 1);
+                individual->setPreviousAgingTime(Now);
+                if((int)(individual->getAge()/lengthAgeBuckets) > (int)((individual->getAge()-1)/lengthAgeBuckets) and individual->getAge()-1 >=0){
+                    ageDist[(int)(individual->getAge()/lengthAgeBuckets)]++;
+                    ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]--;
+                }
+                assert(ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]>=0);
+                //sets age class - may be useful later
+                if(individual->getAge()<=5){
+                    individual->setAgeClass(AGE5);
+                }
+                else if(individual->getAge()<=15){
+                    individual->setAgeClass(AGE15);
+                }
+                else{
+                    individual->setAgeClass(AGE100);
+                }
             }
-            assert(ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]>=0);
-            //sets age class - may be useful later
-            if(individual->getAge()<=5){
-                individual->setAgeClass(AGE5);
-            }
-            else if(individual->getAge()<=15){
-                individual->setAgeClass(AGE15);
-            }
-            else{
-                individual->setAgeClass(AGE100);
-            }
-        }
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);
