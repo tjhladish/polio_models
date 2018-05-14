@@ -61,7 +61,7 @@ private:
     double m_timeToShed;
     int m_age;
     AgeClass m_ageClass;
-    double m_previousAgingTime = 0.0;
+    double m_previousAgingTime = numeric_limits<double>::max();
 
     //Teunis specific attributes
     double m_durationInfection;
@@ -141,6 +141,7 @@ public:
         setAge(0);
         setAgeClass(AGE5);
         setTimeToShed(numeric_limits<double>::max());
+        setPreviousAgingTime(numeric_limits<double>::max());
         if(waningImmunityScenario==1){
             setInitialTiterLevel(minTiter);
             setTimeAtInfection(numeric_limits<double>::max());
@@ -441,12 +442,12 @@ public:
             deathTimeEvent(p);
             
             //set aging time
-            p->setPreviousAgingTime(Now);
             double nextAgeEvent = Now + 1.0;
-            //if(nextAgeEvent < deathTime[p->getIndex()]){
+            if(nextAgeEvent < deathTime[p->getIndex()]){
+                p->setPreviousAgingTime(Now);
                 EventQ.emplace(nextAgeEvent,AGING,p);
                 event_counter[AGING]++;
-            //}
+            }
 
             //set environment contact--occurs daily
             //random so that at initialization everyone isn't contacting at exact same time
@@ -719,7 +720,7 @@ public:
         assert(timeToDeath + p->getAge() <=99);
         double Td;
         if(timeToDeath < 0){
-            Td = Now+.01;
+            Td = Now;
         }
         else{
             Td = timeToDeath + Now;
@@ -936,39 +937,34 @@ public:
         updateEnvironment(timeStep);
 
         Person* individual = event.person;
-        //if(event.type==INFECTIOUS_CONTACT and sheddingPeople.count(individual)>0){
         if(event.type==INFECTIOUS_CONTACT){
             infectiousContact(individual);
 
         }
         else if(event.type==INFECTION_RECOVERY){
-        //else if (event.type==INFECTION_RECOVERY and sheddingPeople.count(individual)>0) {
             infectionRecovery(individual);
         }
         else if(event.type==BEGIN_SHEDDING){
-        //else if(event.type == BEGIN_SHEDDING and individual->getInfectionStatus()!=NA){
             sheddingPeople.insert(individual);
         }
         else if(event.type == AGING){
-            if(individual->getPreviousAgingTime()<=Now-1.0){
-                agingTime(individual);//sets next time to age
-                individual->setAge(individual->getAge() + 1);
-                individual->setPreviousAgingTime(Now);
-                if((int)(individual->getAge()/lengthAgeBuckets) > (int)((individual->getAge()-1)/lengthAgeBuckets) and individual->getAge()-1 >=0){
-                    ageDist[(int)(individual->getAge()/lengthAgeBuckets)]++;
-                    ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]--;
-                }
-                assert(ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]>=0);
-                //sets age class - may be useful later
-                if(individual->getAge()<=5){
-                    individual->setAgeClass(AGE5);
-                }
-                else if(individual->getAge()<=15){
-                    individual->setAgeClass(AGE15);
-                }
-                else{
-                    individual->setAgeClass(AGE100);
-                }
+            agingTime(individual);//sets next time to age
+            individual->setAge(individual->getAge() + 1);
+            individual->setPreviousAgingTime(Now);
+            if((int)(individual->getAge()/lengthAgeBuckets) > (int)((individual->getAge()-1)/lengthAgeBuckets) and individual->getAge()-1 >=0){
+                ageDist[(int)(individual->getAge()/lengthAgeBuckets)]++;
+                ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]--;
+            }
+            assert(ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]>=0);
+            //sets age class - may be useful later
+            if(individual->getAge()<=5){
+                individual->setAgeClass(AGE5);
+            }
+            else if(individual->getAge()<=15){
+                individual->setAgeClass(AGE15);
+            }
+            else{
+                individual->setAgeClass(AGE100);
             }
         }
         else if(event.type == ENVIRONMENT_CONTACT){
