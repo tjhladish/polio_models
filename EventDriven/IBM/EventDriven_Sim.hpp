@@ -28,7 +28,7 @@
 
 using namespace std;
 
-enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, AGING, SHED_INTO_ENVIRONMENT,NUM_OF_EVENT_TYPES};
+enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, SHED_INTO_ENVIRONMENT,NUM_OF_EVENT_TYPES};
 
 enum InfectionStatus{IDC,IE,NA};
 //infection status means the most recent cause of infection
@@ -306,6 +306,7 @@ public:
     EventDriven_MassAction_Sim(const int n, const double beta, const double death, const double maxRunTime, const int wanIm, const double virIntWat,int seed=(random_device())()): rng(seed), N(n), BETA(beta), DEATH_RATE(death), maxRunTime(maxRunTime), waningImmunityScenario(wanIm), propVirusinWater(virIntWat),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
         people = vector<Person*>(n);
         deathTime = vector<double>(n);
+        birthTime = vector<double>(n);
         for (Person* &p: people) p = new Person(people_counter++);
         Now=0.0;
         ii=0;//counter for displaying events in queue
@@ -353,6 +354,7 @@ public:
     //containers to keep track of various pieces of information
     vector<Person*> people;
     vector<double> deathTime;
+    vector<double> birthTime;
     priority_queue<Event, vector<Event>, compTime> EventQ;
     unordered_set<Person*> sheddingPeople;
     vector<int> ageAtFirstInfect;
@@ -404,11 +406,11 @@ public:
 
         while(nextEvent() and EventQ.top().time < maxRunTime) {
         }
-        /*if(EventQ.top().time >= maxRunTime){
+        if(EventQ.top().time >= maxRunTime){
             for(Person* p: people){
-                ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
+                ageDist[(int)((p->getAge()+(Now-birthTime[p->getIndex()]))/lengthAgeBuckets)]++;
             }
-        }*/
+        }
     }
 
     void randomizePopulation(int infected){
@@ -425,7 +427,7 @@ public:
             discrete_distribution<int> age {18.33,15.16,12.54,10.38,8.58,7.10,5.88,4.86,4.02,3.33,2.75,2.28,1.88,1.56,1.29,1.07,0.88,0.73,0.60,0.50};
             int personAge = age(rng);
             p->setAge(chooseAge(personAge,"age"));
-            ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
+            //ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
             if(p->getAge()<=5){
                 p->setAgeClass(AGE5);
             }
@@ -440,14 +442,8 @@ public:
             p->setInitialTiterLevel(maxTiter);
             p->setTimeAtInfection(numeric_limits<double>::max());
             deathTimeEvent(p);
+            birthTime[p->getIndex()] = Now;
             
-            //set aging time
-            double nextAgeEvent = Now + 1.0;
-            if(nextAgeEvent < deathTime[p->getIndex()]){
-                p->setPreviousAgingTime(Now);
-                EventQ.emplace(nextAgeEvent,AGING,p);
-                event_counter[AGING]++;
-            }
 
             //set environment contact--occurs daily
             //random so that at initialization everyone isn't contacting at exact same time
@@ -860,12 +856,9 @@ public:
             }
         }
         sheddingPeople.erase(p);
-        ageDist[(int)(p->getAge()/lengthAgeBuckets)]--;
         p->reset(waningImmunityScenario);
-        ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
         deathTimeEvent(p);
-        p->setPreviousAgingTime(Now);
-        agingTime(p);
+        birthTime[p->getIndex()] = Now;
     }
     
     void updateEnvironment(double timeStep){
@@ -874,14 +867,6 @@ public:
             if(environment < 0){
                 environment = 0;
             }
-        }
-    }
-    
-    void agingTime(Person* p){
-        double nextAgeEvent = Now + 1.0;
-        if(nextAgeEvent < deathTime[p->getIndex()]){
-            EventQ.emplace(nextAgeEvent, AGING,p);
-            event_counter[AGING]++;
         }
     }
 
@@ -927,7 +912,6 @@ public:
           cout<<"\tENVIRONMENT_CONTACT " << event_counter[ENVIRONMENT_CONTACT]<< endl;
           cout<<"\tCHECK_ENVIRONMENT " << event_counter[CHECK_ENVIRONMENT]<< endl;
           cout << "\tDEATH: " << event_counter[DEATH] << endl;
-          cout << "\tAGING: "<< event_counter[AGING] << endl;
           counter+=.1;
           ii++;
           }*/
@@ -946,26 +930,6 @@ public:
         }
         else if(event.type==BEGIN_SHEDDING){
             sheddingPeople.insert(individual);
-        }
-        else if(event.type == AGING){
-            agingTime(individual);//sets next time to age
-            individual->setAge(individual->getAge() + 1);
-            individual->setPreviousAgingTime(Now);
-            if((int)(individual->getAge()/lengthAgeBuckets) > (int)((individual->getAge()-1)/lengthAgeBuckets) and individual->getAge()-1 >=0){
-                ageDist[(int)(individual->getAge()/lengthAgeBuckets)]++;
-                ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]--;
-            }
-            assert(ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]>=0);
-            //sets age class - may be useful later
-            if(individual->getAge()<=5){
-                individual->setAgeClass(AGE5);
-            }
-            else if(individual->getAge()<=15){
-                individual->setAgeClass(AGE15);
-            }
-            else{
-                individual->setAgeClass(AGE100);
-            }
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);
