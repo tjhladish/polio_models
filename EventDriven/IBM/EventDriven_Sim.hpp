@@ -41,6 +41,7 @@ enum AgeClass{AGE5,AGE15,AGE100}; //discretize age class
 //Age15 = 5-15
 //Age100 = 15+
 
+
 class Person{
     friend class Event;
 private:
@@ -48,9 +49,6 @@ private:
     double m_initialTiterLevel;//need initial titer level after infection for waning fn
     double m_titerLevel;
     double m_timeAtInfection;
-    double m_timeToRec=0.0;
-    double m_timetoDeath=0.0;
-    double m_timetoBirth=0.0;
 
 
     //General attributes
@@ -61,7 +59,6 @@ private:
     double m_timeToShed;
     int m_age;
     AgeClass m_ageClass;
-    double m_previousAgingTime = numeric_limits<double>::max();
 
     //Teunis specific attributes
     double m_durationInfection;
@@ -92,12 +89,6 @@ public:
     void setAgeClass(AgeClass a){
         m_ageClass = a;
     }
-    void setPreviousAgingTime(double time){
-        m_previousAgingTime = time;
-    }
-    double getPreviousAgingTime(){
-        return m_previousAgingTime;
-    }
     int getNumInfectionsDC(){
         return m_numInfectionsDC;
     }
@@ -122,18 +113,6 @@ public:
     void setTimeToShed(double time){
         m_timeToShed = time;
     }
-    void setRecoveryTime(double rtime){
-        m_timeToRec = rtime;
-    }
-    void setDeathTime(double dtime){
-        m_timetoDeath = dtime;
-    }
-    double getRecoveryTime(){
-        return m_timeToRec;
-    }
-    double getDeathTime(){
-        return m_timetoDeath;
-    }
     void reset(int waningImmunityScenario){
         setNumInfectionsDC(0);
         setNumInfectionsEnv(0);
@@ -141,7 +120,6 @@ public:
         setAge(0);
         setAgeClass(AGE5);
         setTimeToShed(numeric_limits<double>::max());
-        setPreviousAgingTime(numeric_limits<double>::max());
         if(waningImmunityScenario==1){
             setInitialTiterLevel(minTiter);
             setTimeAtInfection(numeric_limits<double>::max());
@@ -394,8 +372,7 @@ public:
 
     //used to determine how often to add compartment counts to above vectors
     double delta;
-    
-    double ageSum;
+
 
 
     void runSimulation(){
@@ -408,7 +385,7 @@ public:
         }
         if(EventQ.top().time >= maxRunTime){
             for(Person* p: people){
-                ageDist[(int)((p->getAge()+(Now-birthTime[p->getIndex()]))/lengthAgeBuckets)]++;
+                ageDist[(int)((calculateCurrentAge(p))/lengthAgeBuckets)]++;
             }
         }
     }
@@ -427,11 +404,11 @@ public:
             discrete_distribution<int> age {18.33,15.16,12.54,10.38,8.58,7.10,5.88,4.86,4.02,3.33,2.75,2.28,1.88,1.56,1.29,1.07,0.88,0.73,0.60,0.50};
             int personAge = age(rng);
             p->setAge(chooseAge(personAge,"age"));
-            //ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
-            if(p->getAge()<=5){
+            
+            if(calculateCurrentAge(p)<=5){
                 p->setAgeClass(AGE5);
             }
-            else if(p->getAge()<=15){
+            else if(calculateCurrentAge(p)<=15){
                 p->setAgeClass(AGE15);
             }
             else{
@@ -443,7 +420,6 @@ public:
             p->setTimeAtInfection(numeric_limits<double>::max());
             deathTimeEvent(p);
             birthTime[p->getIndex()] = Now;
-            
 
             //set environment contact--occurs daily
             //random so that at initialization everyone isn't contacting at exact same time
@@ -553,16 +529,22 @@ public:
     
     int chooseAge(int personAge,string event){
         int ageGroupIndex;
+        //chooses age at death
         if(event=="death"){
             discrete_distribution<int> ageVec(age_Death[personAge].begin(),age_Death[personAge].end());
             ageGroupIndex = ageVec(rng);
         }
+        //chooses age at initialization
         else if(event=="age"){
             discrete_distribution<int> ageVec(age_Aging[personAge].begin(),age_Aging[personAge].end());
             ageGroupIndex = ageVec(rng);
         }
         int age = personAge*lengthAgeBuckets + ageGroupIndex;
         return age;
+    }
+    
+    int calculateCurrentAge(Person* p){
+        return p->getAge() + Now - birthTime[p->getIndex()];
     }
     
     void infectByDirectContactFamulare(Person* p) {
@@ -572,7 +554,7 @@ public:
         numDCInf++;
         //find average age at first infection
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv())==1 && Now >= maxRunTime/2){
-            ageAtFirstInfect.push_back(p->getAge());
+            ageAtFirstInfect.push_back(calculateCurrentAge(p));
         }
         p->setInfectionStatus(IDC);
         p->setTimeAtInfection(Now);
@@ -610,7 +592,7 @@ public:
         numDCInf++;
         //find average age at first infection
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv())==1 && Now >= maxRunTime/2){
-            ageAtFirstInfect.push_back(p->getAge());
+            ageAtFirstInfect.push_back(calculateCurrentAge(p));
         }
         p->setInfectionStatus(IDC);
         p->setDurationInfection();
@@ -653,7 +635,7 @@ public:
         numEInf++;
         //find average age at first infection
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv())==1 && Now >= maxRunTime/2){
-            ageAtFirstInfect.push_back(p->getAge());
+            ageAtFirstInfect.push_back(calculateCurrentAge(p));
         }
         p->setInfectionStatus(IE);
         p->setTimeAtInfection(Now);
@@ -712,8 +694,10 @@ public:
             }
         }
         int deathAge = chooseAge(deathAgeGroup,"death");
-        int timeToDeath = deathAge - p->getAge();
-        assert(timeToDeath + p->getAge() <=99);
+        //calculate age to set age at death
+        int timeToDeath = deathAge - calculateCurrentAge(p);
+        assert((timeToDeath + calculateCurrentAge(p)) <=99);
+        
         double Td;
         if(timeToDeath < 0){
             Td = Now;
@@ -785,19 +769,16 @@ public:
     }
     
     void infectionRecovery(Person* p){
-        //no else statement to prevent dead person from fulfilling recovery time
+        //no else statement to incorporate vacc later
         if(p->getInfectionStatus()==IDC){
             IDCsum--;
-            NonInfsum++;
-            sheddingPeople.erase(p);
-            p->setInfectionStatus(NA);
         }
         else if(p->getInfectionStatus()==IE){
             IEsum--;
-            NonInfsum++;
-            sheddingPeople.erase(p);
-            p->setInfectionStatus(NA);
         }
+        NonInfsum++;
+        sheddingPeople.erase(p);
+        p->setInfectionStatus(NA);
     }
     
     void environmentContact(Person* p){
@@ -821,6 +802,8 @@ public:
         
         //update environment with additions
         if(sheddingPeople.count(p) > 0){
+            //update age for stool viral load
+            p->setAge(calculateCurrentAge(p));
             environment+=gramsFeces*p->stoolViralLoad(Now);
         }
         
