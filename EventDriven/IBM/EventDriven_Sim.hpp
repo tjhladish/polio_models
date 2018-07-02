@@ -81,8 +81,6 @@ public:
         return m_age;
     }
     void setAge(int a){
-        cout<<"in set age\n";
-        cout<<"a "<<a<<"\n";
         m_age = a;
     }
     int getAgeClass(){
@@ -184,11 +182,12 @@ public:
         return .5*erfc((log(tnew)-(log(muWPV)-log(deltaShedding)*log(m_titerLevel)))/(sqrt(2.0)*log(sigmaWPV)));
     }
     double peakShedding(int age){//age needs to be converted to months
-        if(age <newBorn){
+        double ageInMonths = convertToMonths(age);
+        if(ageInMonths <newBorn){
             return Smax;
         }
         else{
-            return ((Smax-Smin)*exp((convertToMonths(newBorn)-(convertToMonths(age)))/tau)+Smin);
+            return ((Smax-Smin)*exp((newBorn-ageInMonths)/tau)+Smin);
         }
     }
 
@@ -227,15 +226,14 @@ public:
     double getInitialPathogen(){
         return m_initialPathogen;
     }
-    double getAntibodyLevel(double t){
-        //will this function name be confusing if we use it for both waning and boosting?
+    double boostAntibodyLevel(double t){
         const double tnew = convertToDays(t);
-        if(t<=m_durationInfection){
-            m_antibodyLevel = m_initialAntibody*exp(antibodyGrowth*t);
-        }
-        else{
-            m_antibodyLevel = m_peakAntibody*pow((1+(r - 1)*pow(m_peakAntibody,(r-1))*antibodyDecay*(tnew-m_durationInfection)),(-1/(r-1)));
-        }
+        m_antibodyLevel = m_initialAntibody*exp(antibodyGrowth*tnew);
+        return m_antibodyLevel;
+    }
+    double waneAntibodyLevel(double t){
+        const double tnew = convertToDays(t);
+        m_antibodyLevel = m_peakAntibody*pow((1+(r - 1)*pow(m_peakAntibody,(r-1))*antibodyDecay*(tnew-m_durationInfection)),(-1/(r-1)));
         return m_antibodyLevel;
     }
     double getPathogenLevel(double t){
@@ -533,7 +531,7 @@ public:
     }
     
     int chooseAge(int personAge,string event){
-        int ageGroupIndex;
+        int ageGroupIndex = numeric_limits<int>::max();
         //chooses age at death
         if(event=="death"){
             discrete_distribution<int> ageVec(age_Death[personAge].begin(),age_Death[personAge].end());
@@ -544,12 +542,13 @@ public:
             discrete_distribution<int> ageVec(age_Aging[personAge].begin(),age_Aging[personAge].end());
             ageGroupIndex = ageVec(rng);
         }
+        assert(ageGroupIndex != numeric_limits<int>::max());
         int age = personAge*lengthAgeBuckets + ageGroupIndex;
         return age;
     }
     
     int calculateCurrentAge(Person* p){
-        return p->getAge() + Now - birthTime[p->getIndex()];
+        return (int)(p->getAge() + Now - birthTime[p->getIndex()]);
     }
     
     void infectByDirectContactFamulare(Person* p) {
@@ -604,11 +603,11 @@ public:
 
         //set time to shedding (able to cause infections) if it occurs before death
         double sheddingTime = Now + (1/(double)365);
-        if(sheddingTime < deathTime[p->getIndex()]){
+        p->setTimeToShed(sheddingTime);
+        if(p->getTimeToShed() < deathTime[p->getIndex()]){
             EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);//assume shedding begins a day later
             event_counter[BEGIN_SHEDDING]++;
         }
-        p->setTimeToShed(sheddingTime);//need to prevent simultaneous infections
 
         //set time to recovery if it occurs before death
         double Tr = p->getDurationInfection() + Now;
@@ -659,7 +658,7 @@ public:
         double Tc = exp_beta(rng) + Now;
 
         while (p->probShedding(Tc)>WPVrecThresh) {
-            if((Tc > sheddingTime) and (Tc < deathTime[p->getIndex()])){//only make infectious contacts after shedding begins and before death
+            if((Tc > p->getTimeToShed()) and (Tc < deathTime[p->getIndex()])){//only make infectious contacts after shedding begins and before death
                 EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
                 event_counter[INFECTIOUS_CONTACT]++;
             }
@@ -691,13 +690,14 @@ public:
     void deathTimeEvent(Person* p){
         
         double rand = unif_real(rng);
-        int deathAgeGroup;//do i want to put a default value just in case?
+        int deathAgeGroup = numeric_limits<int>::max();//do i want to put a default value just in case?
         for(unsigned int i = 0; i < deathCDF.size(); i++){
             if(rand < deathCDF[i]){
                 deathAgeGroup = i;
                 break;
             }
         }
+        assert(deathAgeGroup != numeric_limits<int>::max());
         int deathAge = chooseAge(deathAgeGroup,"death");
         //calculate age to set age at death
         int timeToDeath = deathAge - calculateCurrentAge(p);
@@ -752,11 +752,11 @@ public:
                 Person* contact = people[contact_idx];
                 
                 //no simultaneous infections
-                if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
-                    
+                //if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
+                if((contact->getTimeToShed() < Now or contact->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(contact)==0){
                     //check susceptibility
                     double dose = p->getPathogenLevel(Now);//assumes all of individual's pathogen is transmitted
-                    if((pathogenGrowth*dose - pathogenClearance*contact->getAntibodyLevel(Now)) > 0){
+                    if((pathogenGrowth*dose - pathogenClearance*contact->waneAntibodyLevel(Now)) > 0){
                         NonInfsum--;
                         IDCsum++;
                         infectByDirectContactTeunis(contact);
@@ -807,12 +807,6 @@ public:
         
         //update environment with additions
         if(sheddingPeople.count(p) > 0){
-            //update age for stool viral load
-            /*assert(calculateCurrentAge(p) <= 100);
-            p->setAge(calculateCurrentAge(p));
-            cout<<"after set age "<<p->getAge()<<"\n";
-            cout<<"calculate current age "<<calculateCurrentAge(p)<<"\n";
-            assert(calculateCurrentAge(p) <= 100);*/
             environment+=gramsFeces*p->stoolViralLoad(Now,calculateCurrentAge(p));
         }
         
@@ -915,27 +909,21 @@ public:
         Person* individual = event.person;
         if(event.type==INFECTIOUS_CONTACT){
             infectiousContact(individual);
-            assert(calculateCurrentAge(individual) <= 100);
-
         }
         else if(event.type==INFECTION_RECOVERY){
             infectionRecovery(individual);
-            assert(calculateCurrentAge(individual) <= 100);
         }
         else if(event.type==BEGIN_SHEDDING){
             sheddingPeople.insert(individual);
-            assert(calculateCurrentAge(individual) <= 100);
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);
-            assert(calculateCurrentAge(individual) <= 100);
         }
         else if(event.type==CHECK_ENVIRONMENT){
             environmentalSurveillance();
         }
         else if(event.type == DEATH){
             deathEvent(individual);
-            assert(calculateCurrentAge(individual)<= 100);
         }
         event_counter[event.type]--;
         previousTime = Now;
