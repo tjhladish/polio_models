@@ -81,6 +81,8 @@ public:
         return m_age;
     }
     void setAge(int a){
+        cout<<"in set age\n";
+        cout<<"a "<<a<<"\n";
         m_age = a;
     }
     int getAgeClass(){
@@ -181,18 +183,18 @@ public:
         const double tnew = convertToDays(t - m_timeAtInfection);//***t needs to be time since infection (days)
         return .5*erfc((log(tnew)-(log(muWPV)-log(deltaShedding)*log(m_titerLevel)))/(sqrt(2.0)*log(sigmaWPV)));
     }
-    double peakShedding(){//age needs to be converted to months
-        if(m_age<newBorn){
+    double peakShedding(int age){//age needs to be converted to months
+        if(age <newBorn){
             return Smax;
         }
         else{
-            return ((Smax-Smin)*exp((convertToMonths(newBorn)-(convertToMonths(m_age)))/tau)+Smin);
+            return ((Smax-Smin)*exp((convertToMonths(newBorn)-(convertToMonths(age)))/tau)+Smin);
         }
     }
 
-    double stoolViralLoad(double t){
+    double stoolViralLoad(double t, int age){
         const double tnew = convertToDays(t-m_timeAtInfection);
-        return max(pow(10.0,2.6),pow(10.0,((1.0-k*log2(m_titerLevel))*log(peakShedding())))*(exp(eta-(pow(nu,2.0)/2.0)-(pow(log(tnew)-eta,2.0)/(2.0*pow(nu+xsi*log(tnew),2.0))))/tnew));
+        return max(pow(10.0,2.6),pow(10.0,((1.0-k*log2(m_titerLevel))*log(peakShedding(age))))*(exp(eta-(pow(nu,2.0)/2.0)-(pow(log(tnew)-eta,2.0)/(2.0*pow(nu+xsi*log(tnew),2.0))))/tnew));
             //**units are in TCID50/g
     }
 
@@ -305,6 +307,8 @@ public:
         NonInfsum=n;
         IDCsum=0;
         IEsum=0;
+        environment = 0;
+        previousTime = 0;
         sheddingPeople.clear();
     }
 
@@ -385,6 +389,7 @@ public:
         }
         if(EventQ.top().time >= maxRunTime){
             for(Person* p: people){
+                assert((int)((calculateCurrentAge(p))/lengthAgeBuckets) < 20);
                 ageDist[(int)((calculateCurrentAge(p))/lengthAgeBuckets)]++;
             }
         }
@@ -803,8 +808,12 @@ public:
         //update environment with additions
         if(sheddingPeople.count(p) > 0){
             //update age for stool viral load
+            /*assert(calculateCurrentAge(p) <= 100);
             p->setAge(calculateCurrentAge(p));
-            environment+=gramsFeces*p->stoolViralLoad(Now);
+            cout<<"after set age "<<p->getAge()<<"\n";
+            cout<<"calculate current age "<<calculateCurrentAge(p)<<"\n";
+            assert(calculateCurrentAge(p) <= 100);*/
+            environment+=gramsFeces*p->stoolViralLoad(Now,calculateCurrentAge(p));
         }
         
         //set next time to contact environment if it occurs before death
@@ -906,22 +915,27 @@ public:
         Person* individual = event.person;
         if(event.type==INFECTIOUS_CONTACT){
             infectiousContact(individual);
+            assert(calculateCurrentAge(individual) <= 100);
 
         }
         else if(event.type==INFECTION_RECOVERY){
             infectionRecovery(individual);
+            assert(calculateCurrentAge(individual) <= 100);
         }
         else if(event.type==BEGIN_SHEDDING){
             sheddingPeople.insert(individual);
+            assert(calculateCurrentAge(individual) <= 100);
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);
+            assert(calculateCurrentAge(individual) <= 100);
         }
         else if(event.type==CHECK_ENVIRONMENT){
             environmentalSurveillance();
         }
         else if(event.type == DEATH){
             deathEvent(individual);
+            assert(calculateCurrentAge(individual)<= 100);
         }
         event_counter[event.type]--;
         previousTime = Now;
