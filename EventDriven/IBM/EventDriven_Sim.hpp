@@ -593,6 +593,7 @@ public:
     }
     void infectByDirectContactTeunis(Person* p){
         
+        //set initial immunity level based on previous immunity level -- setDurationInfection uses to determine boosting
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv()) > 1){
             p->setInitialImmunityLevel(p->getImmunityLevel(Now));
         }
@@ -648,10 +649,6 @@ public:
         p->setInfectionStatus(IE);
         p->setTimeAtInfection(Now);
         
-        //boost immunity 10 fold if Famulare waning model
-        if(waningImmunityScenario == 1){
-            p->setTiterLevel(11.0*p->getTiterLevel());
-        }
 
         //set time to shedding (able to cause infections) if it occurs before death
         double sheddingTime = Now + (1/(double)365);//assume shedding begins a day later--can't be instantaneous
@@ -664,16 +661,43 @@ public:
         // time to next human-human contact
         exponential_distribution<double> exp_beta(BETA); //BETA is contact rate/individual/year
         double Tc = exp_beta(rng) + Now;
-
-        while (p->probShedding(Tc)>WPVrecThresh) {
-            if((Tc > p->getTimeToShed()) and (Tc < deathTime[p->getIndex()])){//only make infectious contacts after shedding begins and before death
-                EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
-                event_counter[INFECTIOUS_CONTACT]++;
+        
+        //initialize recovery time to be set depending on waning immunity scenario
+        double Tr = numeric_limits<double>::max();
+        
+        if(waningImmunityScenario == 1){
+            //boost immunity 10 fold if Famulare waning model
+            p->setTiterLevel(11.0*p->getTiterLevel());
+            
+            //determine infectious contacts (only can occur after shedding begins and before death)
+            while (p->probShedding(Tc)>WPVrecThresh) {
+                if((Tc > p->getTimeToShed()) and (Tc < deathTime[p->getIndex()])){
+                    EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
+                    event_counter[INFECTIOUS_CONTACT]++;
+                }
+                Tc += exp_beta(rng);
             }
-            Tc += exp_beta(rng);
+            //set time to recovery if it occurs before death
+            Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
         }
-        //set time to recovery if it occurs before death
-        double Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
+        else if(waningImmunityScenario == 2){
+            //set initial immunity level to determine boosting amount
+            if((p->getNumInfectionsDC() + p->getNumInfectionsEnv()) > 1){
+                p->setInitialImmunityLevel(p->getImmunityLevel(Now));
+            }
+            p->setDurationInfection();
+            //set time to recovery
+            Tr = p->getDurationInfection() + Now;
+            
+            //determine infectious contacts
+            while ((Tr>Tc) and (Tc < deathTime[p->getIndex()])) {//if contact occurs before recovery and death
+                EventQ.emplace(Tc, INFECTIOUS_CONTACT,p);
+                event_counter[INFECTIOUS_CONTACT]++;
+                Tc+=exp_beta(rng);
+            }
+        }
+
+        assert(Tr != numeric_limits<double>::max());
         if(Tr < deathTime[p->getIndex()]){
             EventQ.emplace(Tr,INFECTION_RECOVERY,p);
             event_counter[INFECTION_RECOVERY]++;
@@ -762,8 +786,11 @@ public:
                 //no simultaneous infections
                 //if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
                 if((contact->getTimeToShed() < Now or contact->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(contact)==0){
-                    //check susceptibility (is pathogen concentration greather than immunity level?)
+                    
+                    
                     double dose = p->getPathogenLevel(Now);//assumes all of individual's pathogen is transmitted
+                    
+                    //check susceptibility (is pathogen concentration greather than immunity level?)
                     if(((dose*exp(pathogenGrowth*Now)- (pathogenClearance/(antibodyGrowth-pathogenGrowth))*(exp(antibodyGrowth*Now)-exp(pathogenGrowth*Now)))- p->getImmunityLevel(Now)*exp(antibodyGrowth*Now)) > 0){
                         NonInfsum--;
                         IDCsum++;
@@ -818,6 +845,7 @@ public:
                 }
             }
             else if(waningImmunityScenario == 2){
+                //is pathogen concentration greater than immunity level?
                 if(((envDose*exp(pathogenGrowth*Now)- (pathogenClearance/(antibodyGrowth-pathogenGrowth))*(exp(antibodyGrowth*Now)-exp(pathogenGrowth*Now)))- p->getImmunityLevel(Now)*exp(antibodyGrowth*Now)) > 0){
                     NonInfsum--;
                     IEsum++;
@@ -832,6 +860,7 @@ public:
                 environment+=gramsFeces*p->stoolViralLoad(Now,calculateCurrentAge(p));
             }
             else if(waningImmunityScenario == 2){
+                //assumes equal pathogen level shed is equal to pathogen level in individual -- probably should change this assumption
                 environment += p->getPathogenLevel(Now);
             }
         }
