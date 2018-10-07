@@ -833,7 +833,7 @@ public:
         virusCon = propVirusinWater*environment;
         
         //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
-        envDose = 2*virusCon; //2 is num L water drank per day
+        envDose = numLitersDrinkWater*virusCon;
         
         //no simultaneous infections
         if((p->getTimeToShed() < Now or p->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(p)==0){
