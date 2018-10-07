@@ -5,7 +5,7 @@
 
 
 int main(int argc, char** argv) {
-    if (argc != 3) { cerr << "\t\nUsage: ./polio <pop_size> <waning_function>\n \t waning_function: Enter 1 for Famulare waning and 2 for Teunis waning\n\n"; exit(-1);}
+    if (argc != 3) { cerr << "\t\nUsage: ./polio <pop_size> <waning_function>\n \t waning_function: Enter <FAMULARE> for Famulare waning and <TEUNIS> for Teunis waning\n\n"; exit(-1);}
     
     using namespace std;
     string output_dir = "/Users/Celeste/Desktop/C++_Polio_IBM/";
@@ -21,9 +21,12 @@ int main(int argc, char** argv) {
     const int numSims  = 1;
     const int N        = atoi(argv[1]);
     const double DEATH = 0.012;//assumes max age of 85 y.o.
+    //adding seasonality to transmission term (highest transmission in summer months, lowest in winter months)
+    //vector<double> beta(12) = {1000};
     const double BETA  = 1000;//can't set to zero otherwise recovery time is inf -- do we want to change this?
     const double maxRunTime = 5; //units in years
-    const int waningImmunity = atoi(argv[2]);
+    const int waningImmunity = convertCLArg(argv[2]);
+    assert(waningImmunity!=NUM_OF_WANING_IMMUNITY);
     const double propVirusinWater = 1e-9;
     string ext = "N_" + to_string(N)+"_beta_"+to_string(BETA)+"_wan_immune_"+to_string(waningImmunity)+ "_test.csv";
     
