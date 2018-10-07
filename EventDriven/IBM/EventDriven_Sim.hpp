@@ -30,17 +30,24 @@ using namespace std;
 
 enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, SHED_INTO_ENVIRONMENT,NUM_OF_EVENT_TYPES};
 
-enum InfectionStatus{IDC,IE,NA};
+enum InfectionStatus{IDC, IE, NA, NUM_OF_INFECTION_STATUS};
 //infection status means the most recent cause of infection
 //NA means never infected
 //DC suffix -> infection by direct contact
 //E suffix -> infection by contacting environment
 
-enum AgeClass{AGE5,AGE15,AGE100}; //discretize age class
+enum AgeClass{AGE5, AGE15, AGE100, NUM_OF_AGE_CLASSES}; //discretize age class
 //Age5 = 0-5
 //Age15 = 5-15
 //Age100 = 15+
 
+enum WaningImmunity{FAMULARE, TEUNIS, NUM_OF_WANING_IMMUNITY};
+
+WaningImmunity convertCLArg(const string wi){
+    if(wi == "FAMULARE") return FAMULARE;
+    else if(wi == "TEUNIS") return TEUNIS;
+    else return NUM_OF_WANING_IMMUNITY; //I don't think this will get caught until infectious contact
+}
 
 class Person{
     friend class Event;
@@ -121,10 +128,10 @@ public:
         setAgeClass(AGE5);
         setTimeToShed(numeric_limits<double>::max());
         setTimeAtInfection(numeric_limits<double>::max());
-        if(waningImmunityScenario==1){
+        if(waningImmunityScenario==FAMULARE){
             setInitialTiterLevel(minTiter);
         }
-        else if(waningImmunityScenario==2){
+        else if(waningImmunityScenario==TEUNIS){
             setInitialImmunityLevel(1.0);
             setInitialPathogen(0.0);
             setDurationInfection();//sets peak antibody level
@@ -419,10 +426,10 @@ public:
             birthTime[p->getIndex()] = Now;
             p->setTimeAtInfection(numeric_limits<double>::max());
             
-            if(waningImmunityScenario == 1){
+            if(waningImmunityScenario == FAMULARE){
                 p->setInitialTiterLevel(maxTiter);
             }
-            else if(waningImmunityScenario == 2){
+            else if(waningImmunityScenario == TEUNIS){
                 p->setInitialImmunityLevel(1.0);
             }
 
@@ -445,12 +452,12 @@ public:
         }
         
         for(int i = 0; i < infected; i++){
-            if(waningImmunityScenario==1){//maybe it would be better to make this a better descriptor than 1 for Fam and 2 for Teunis
+            if(waningImmunityScenario == FAMULARE){
                 NonInfsum--;
                 IDCsum++;
                 infectByDirectContactFamulare(people[i]);
             }
-            else{
+            else if(waningImmunityScenario == TEUNIS){
                 NonInfsum--;
                 IDCsum++;
                 people[i]->setInitialPathogen(1000);//input variable to change
@@ -665,7 +672,7 @@ public:
         //initialize recovery time to be set depending on waning immunity scenario
         double Tr = numeric_limits<double>::max();
         
-        if(waningImmunityScenario == 1){
+        if(waningImmunityScenario == FAMULARE){
             //boost immunity 10 fold if Famulare waning model
             p->setTiterLevel(11.0*p->getTiterLevel());
             
@@ -680,7 +687,7 @@ public:
             //set time to recovery if it occurs before death
             Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
         }
-        else if(waningImmunityScenario == 2){
+        else if(waningImmunityScenario == TEUNIS){
             //set initial immunity level to determine boosting amount
             if((p->getNumInfectionsDC() + p->getNumInfectionsEnv()) > 1){
                 p->setInitialImmunityLevel(p->getImmunityLevel(Now));
@@ -750,7 +757,7 @@ public:
     
     void infectiousContact(Person* p){
         switch (waningImmunityScenario) {
-            case 1://Famulare waning
+            case FAMULARE:
             {
                 //choose person to contact
                 int contact_idx = unif_int(rng);
@@ -775,7 +782,7 @@ public:
                 break;
                 
             }
-            case 2://Teunis waning
+            case TEUNIS:
             {
                 
                 //choose person to contact
@@ -832,7 +839,7 @@ public:
         if((p->getTimeToShed() < Now or p->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(p)==0){
             
             //check susceptibility
-            if(waningImmunityScenario == 1){
+            if(waningImmunityScenario == FAMULARE){
                 //wane immunity if applicable
                 if(p->getTimeAtInfection()!=numeric_limits<double>::max()){
                     p->waningFamulare(Now);
@@ -844,7 +851,7 @@ public:
                     infectByEnvironment(p);
                 }
             }
-            else if(waningImmunityScenario == 2){
+            else if(waningImmunityScenario == TEUNIS){
                 //is pathogen concentration greater than immunity level?
                 if(((envDose*exp(pathogenGrowth*Now)- (pathogenClearance/(antibodyGrowth-pathogenGrowth))*(exp(antibodyGrowth*Now)-exp(pathogenGrowth*Now)))- p->getImmunityLevel(Now)*exp(antibodyGrowth*Now)) > 0){
                     NonInfsum--;
@@ -856,10 +863,10 @@ public:
         
         //update environment with additions
         if(sheddingPeople.count(p) > 0){
-            if(waningImmunityScenario == 1){
+            if(waningImmunityScenario == FAMULARE){
                 environment+=gramsFeces*p->stoolViralLoad(Now,calculateCurrentAge(p));
             }
-            else if(waningImmunityScenario == 2){
+            else if(waningImmunityScenario == TEUNIS){
                 //assumes equal pathogen level shed is equal to pathogen level in individual -- probably should change this assumption
                 environment += p->getPathogenLevel(Now);
             }
@@ -893,6 +900,12 @@ public:
             {
                 IEsum--;
                 NonInfsum++;
+                break;
+            }
+            default:
+            {
+                cout<<"Invalid input\n";
+                exit(-1);
                 break;
             }
         }
