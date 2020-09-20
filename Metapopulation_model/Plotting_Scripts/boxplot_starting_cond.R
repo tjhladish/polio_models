@@ -1,10 +1,7 @@
 #boxplot for population distribution at beginning of sim after 50 year burn in
 
-dir = '/Users/Celeste/Desktop/multipatch_model/SC_statistic/'
-dir1 = '/Users/Celeste/Desktop/multipatch_model/'
-dir2 = '/Users/Celeste/Desktop/multipatch_model/Figures/'
-dir3 = '/Users/Celeste/Desktop/multipatch_model/sim_results/'
-dir4 = '/Users/Celeste/Desktop/multipatch_model/metapopulation_polio/'
+dir2 = 'Metapopulation_model/Figures/'
+dir4 = '/Metapopulation_model/SC_statistic_output/'
 
 #1 village of 64,000
 oneVillage_64000_seasonality1yrperiod_S = read.csv(paste0(dir4,'S_at_burnin_64000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
@@ -41,8 +38,6 @@ oneVillage32000_R_new <- oneVillage_32000_seasonality1yrperiod_R[-ni_32000,]
 oneVillage32000_P_new <- oneVillage_32000_seasonality1yrperiod_P[-ni_32000,]
 
 
-twoVillage_32000_seasonality1yrperiod_migRate_0.1 = read.table(paste0(dir,'1pcase_2x32000_migRate_0.1_seasonality_period_1yr.csv'), col.names=c('time', 'E&D'))
-
 oneVillage_16000_seasonality1yrperiod_S = read.csv(paste0(dir4,'S_at_burnin_16000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
 oneVillage_16000_seasonality1yrperiod_I1 = read.csv(paste0(dir4,'I1_at_burnin_16000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
 oneVillage_16000_seasonality1yrperiod_R = read.csv(paste0(dir4,'R_at_burnin_16000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
@@ -59,8 +54,6 @@ oneVillage16000_R_new <- oneVillage_16000_seasonality1yrperiod_R[-ni_16000,]
 oneVillage16000_P_new <- oneVillage_16000_seasonality1yrperiod_P[-ni_16000,]
 
 
-fourVillage_16000_seasonality1yrperiod_migRate_0.1 = read.table(paste0(dir,'1pcase_4x16000_migRate_0.1_seasonality_period_1yr.csv'), col.names=c('time', 'E&D'))
-
 oneVillage_8000_seasonality1yrperiod_S = read.csv(paste0(dir4,'S_at_burnin_8000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
 oneVillage_8000_seasonality1yrperiod_I1 = read.csv(paste0(dir4,'I1_at_burnin_8000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
 oneVillage_8000_seasonality1yrperiod_R = read.csv(paste0(dir4,'R_at_burnin_8000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
@@ -76,7 +69,6 @@ oneVillage8000_IR_new <- oneVillage_8000_seasonality1yrperiod_Ir[-ni_8000,]
 oneVillage8000_R_new <- oneVillage_8000_seasonality1yrperiod_R[-ni_8000,]
 oneVillage8000_P_new <- oneVillage_8000_seasonality1yrperiod_P[-ni_8000,]
 
-eightVillage_8000_seasonality1yrperiod_migRate_0.1 = read.table(paste0(dir,'1pcase_8x8000_migRate_0.1_seasonality_period_1yr.csv'), col.names=c('time', 'E&D'))
 
 oneVillage_4000_seasonality1yrperiod_S = read.csv(paste0(dir4,'S_at_burnin_4000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
 oneVillage_4000_seasonality1yrperiod_I1 = read.csv(paste0(dir4,'I1_at_burnin_4000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
@@ -93,7 +85,6 @@ oneVillage4000_IR_new <- oneVillage_4000_seasonality1yrperiod_Ir[-ni_4000,]
 oneVillage4000_R_new <- oneVillage_4000_seasonality1yrperiod_R[-ni_4000,]
 oneVillage4000_P_new <- oneVillage_4000_seasonality1yrperiod_P[-ni_4000,]
 
-sixteenVillage_4000_seasonality1yrperiod_migRate_0.1 = read.table(paste0(dir,'1pcase_16x4000_migRate_0.1_seasonality_period_1yr.csv'), col.names=c('time', 'E&D'))
 
 oneVillage_2000_seasonality1yrperiod_S = read.csv(paste0(dir4,'S_at_burnin_2000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
 oneVillage_2000_seasonality1yrperiod_I1 = read.csv(paste0(dir4,'I1_at_burnin_2000reintRate_0.001000migRate_0.000000_paper.csv'),header=FALSE)
@@ -109,10 +100,6 @@ oneVillage2000_I1_new <- oneVillage_2000_seasonality1yrperiod_I1[-ni_2000,]
 oneVillage2000_IR_new <- oneVillage_2000_seasonality1yrperiod_Ir[-ni_2000,]
 oneVillage2000_R_new <- oneVillage_2000_seasonality1yrperiod_R[-ni_2000,]
 oneVillage2000_P_new <- oneVillage_2000_seasonality1yrperiod_P[-ni_2000,]
-
-sixteenVillage_4000_seasonality1yrperiod_migRate_0.1 = read.table(paste0(dir,'1pcase_16x4000_migRate_0.1_seasonality_period_1yr.csv'), col.names=c('time', 'E&D'))
-
-
 
 
 boxplot(oneVillage64000_S_new, oneVillage64000_I1_new,oneVillage64000_IR_new,oneVillage64000_R_new,oneVillage64000_P_new)
