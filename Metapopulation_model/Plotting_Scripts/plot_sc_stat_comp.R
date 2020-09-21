@@ -2,27 +2,22 @@
 
 dir = '/Users/Celeste/Desktop/multipatch_model/SC_statistic/'
 dir1 = '/Users/Celeste/Desktop/multipatch_model/'
-dir2 = '/Users/Celeste/Desktop/multipatch_model/Figures/'
+dir2 = '/Metapopulation_model/Figures/'
 
 library(RColorBrewer)
 
 
 #plot comparison of 0pcase (assuming case at start of sim) vs 1pcase (waiting for simulated case)
-fourVillage_16000_seasonality1yrperiod_0pcase = read.table(paste0(dir,'0pcase_4x16000_migRate_0_seasonality_period_1yr.csv'), col.names=c('time', 'E&D'))
-sixteenVillage_4000_seasonality1yrperiod_0pcase = read.table(paste0(dir,'0pcase_16x4000_migRate_0_seasonality_period_1yr.csv'), col.names=c('time', 'E&D'))
+sixteenVillage_4000_0pcase = read.table(paste0(dir,'0pcase_16x4000_migRate_0_paper_092120.csv'), col.names=c('time', 'E&D'))
+sixteenVillage_4000_1pcase = read.table(paste0(dir,'1pcase_16x4000_migRate_0_paper.csv'), col.names=c('time', 'E&D'))
 
 
-png(paste0(dir2,"SC_comp_0pcase_vs_1pcase_4x16000_migRate_0.png"), width=1400, height=800, res=150) 
-plot(fourVillage_16000_seasonality1yrperiod,type='l',xlab="Time since last detected paralytic case (years)",ylab="Probability of silent circulation")
-lines(fourVillage_16000_seasonality1yrperiod_0pcase,col='red')
+png(paste0(dir2,"SC_comp_0pcase_vs_1pcase_16x4000_migRate_0_092120.png"), width=1400, height=800, res=150)
+plot(sixteenVillage_4000_1pcase,type='l',xlab="Years since last detected paralytic case",ylab="Probability of silent circulation")
+lines(sixteenVillage_4000_0pcase,col='red')
 legend('topright',legend=c('NICA','ICA'),col=c('black','red'),lwd=2,bty='n')
 dev.off()
 
-png(paste0(dir2,"SC_comp_0pcase_vs_1pcase_16x4000_migRate_0.png"), width=1400, height=800, res=150) 
-plot(sixteenVillage_4000_seasonality1yrperiod,type='l',xlab="Time since last detected paralytic case (years)",ylab="Probability of silent circulation")
-lines(sixteenVillage_4000_seasonality1yrperiod_0pcase,col='red')
-legend('topright',legend=c('NICA','ICA'),col=c('black','red'),lwd=2,bty='n')
-dev.off()
 
 # single pop
 oneVillage_64000_seasonality1yrperiod = read.table(paste0(dir,'1pcase_1x64000_migRate_0_paper.csv'), col.names=c('time', 'E&D'))
