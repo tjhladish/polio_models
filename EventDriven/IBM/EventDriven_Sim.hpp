@@ -28,18 +28,26 @@
 
 using namespace std;
 
-enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, AGING, SHED_INTO_ENVIRONMENT,NUM_OF_EVENT_TYPES};
+enum EventType {INFECTIOUS_CONTACT, INFECTION_RECOVERY, DEATH, BEGIN_SHEDDING, CHECK_ENVIRONMENT, ENVIRONMENT_CONTACT, SHED_INTO_ENVIRONMENT,NUM_OF_EVENT_TYPES};
 
-enum InfectionStatus{IDC,IE,NA};
+enum InfectionStatus{IDC, IE, NA, NUM_OF_INFECTION_STATUS};
 //infection status means the most recent cause of infection
 //NA means never infected
 //DC suffix -> infection by direct contact
 //E suffix -> infection by contacting environment
 
-enum AgeClass{AGE5,AGE15,AGE100}; //discretize age class
+enum AgeClass{AGE5, AGE15, AGE100, NUM_OF_AGE_CLASSES}; //discretize age class
 //Age5 = 0-5
 //Age15 = 5-15
 //Age100 = 15+
+
+enum WaningImmunity{FAMULARE, TEUNIS, NUM_OF_WANING_IMMUNITY};
+
+WaningImmunity convertCLArg(const string wi){
+    if(wi == "FAMULARE") return FAMULARE;
+    else if(wi == "TEUNIS") return TEUNIS;
+    else return NUM_OF_WANING_IMMUNITY; //I don't think this will get caught until infectious contact
+}
 
 class Person{
     friend class Event;
@@ -47,13 +55,10 @@ private:
     //Famulare specific attributes
     double m_initialTiterLevel;//need initial titer level after infection for waning fn
     double m_titerLevel;
-    double m_timeAtInfection;
-    double m_timeToRec=0.0;
-    double m_timetoDeath=0.0;
-    double m_timetoBirth=0.0;
 
 
     //General attributes
+    double m_timeAtInfection;
     InfectionStatus m_infectionStatus;
     int m_numInfectionsDC; //DC means direct contact
     int m_numInfectionsEnv;
@@ -61,19 +66,18 @@ private:
     double m_timeToShed;
     int m_age;
     AgeClass m_ageClass;
-    double m_previousAgingTime = 0.0;
 
     //Teunis specific attributes
     double m_durationInfection;
     double m_initialPathogen;
-    double m_initialAntibody;
-    double m_peakAntibody;
-    double m_antibodyLevel;
+    double m_initialImmunityLevel;
+    double m_peakImmunityLevel;
+    double m_immunityLevel;
     double m_pathogenLevel;
 
 public:
     //default constructor
-    Person(int idx, double initialTiterLevel = 1.0, double titerLevel=1.0, double timeAtInfection=numeric_limits<double>::max(), InfectionStatus infStat = NA, int numInf=0, int numInfEnv=0, double timeToShed = numeric_limits<double>::max(), int age =0.0, AgeClass a = AGE5, double durInf=0, double intPat = 0.0, double intAnt=1.0, double pkAnt=1.0, double antLvl = 1.0, double patLvl = 0.0):m_initialTiterLevel(initialTiterLevel), m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection), m_infectionStatus(infStat),m_numInfectionsDC(numInf),m_numInfectionsEnv(numInfEnv),m_index(idx), m_timeToShed(timeToShed), m_age(age), m_ageClass(a), m_durationInfection(durInf), m_initialPathogen(intPat), m_initialAntibody(intAnt), m_peakAntibody(pkAnt), m_antibodyLevel(antLvl), m_pathogenLevel(patLvl){
+    Person(int idx, double initialTiterLevel = 1.0, double titerLevel=1.0, double timeAtInfection=numeric_limits<double>::max(), InfectionStatus infStat = NA, int numInf=0, int numInfEnv=0, double timeToShed = numeric_limits<double>::max(), int age =0.0, AgeClass a = AGE5, double durInf=0, double intPat = 0.0, double intAnt=1.0, double pkAnt=1.0, double antLvl = 1.0, double patLvl = 0.0):m_initialTiterLevel(initialTiterLevel), m_titerLevel(titerLevel),m_timeAtInfection(timeAtInfection), m_infectionStatus(infStat),m_numInfectionsDC(numInf),m_numInfectionsEnv(numInfEnv),m_index(idx), m_timeToShed(timeToShed), m_age(age), m_ageClass(a), m_durationInfection(durInf), m_initialPathogen(intPat), m_initialImmunityLevel(intAnt), m_peakImmunityLevel(pkAnt), m_immunityLevel(antLvl), m_pathogenLevel(patLvl){
 
     }
     //General Functions
@@ -91,12 +95,6 @@ public:
     }
     void setAgeClass(AgeClass a){
         m_ageClass = a;
-    }
-    void setPreviousAgingTime(double time){
-        m_previousAgingTime = time;
-    }
-    double getPreviousAgingTime(){
-        return m_previousAgingTime;
     }
     int getNumInfectionsDC(){
         return m_numInfectionsDC;
@@ -122,18 +120,6 @@ public:
     void setTimeToShed(double time){
         m_timeToShed = time;
     }
-    void setRecoveryTime(double rtime){
-        m_timeToRec = rtime;
-    }
-    void setDeathTime(double dtime){
-        m_timetoDeath = dtime;
-    }
-    double getRecoveryTime(){
-        return m_timeToRec;
-    }
-    double getDeathTime(){
-        return m_timetoDeath;
-    }
     void reset(int waningImmunityScenario){
         setNumInfectionsDC(0);
         setNumInfectionsEnv(0);
@@ -141,12 +127,12 @@ public:
         setAge(0);
         setAgeClass(AGE5);
         setTimeToShed(numeric_limits<double>::max());
-        if(waningImmunityScenario==1){
+        setTimeAtInfection(numeric_limits<double>::max());
+        if(waningImmunityScenario==FAMULARE){
             setInitialTiterLevel(minTiter);
-            setTimeAtInfection(numeric_limits<double>::max());
         }
-        else{
-            setInitialAntibody(1.0);
+        else if(waningImmunityScenario==TEUNIS){
+            setInitialImmunityLevel(1.0);
             setInitialPathogen(0.0);
             setDurationInfection();//sets peak antibody level
         }
@@ -202,18 +188,19 @@ public:
         const double tnew = convertToDays(t - m_timeAtInfection);//***t needs to be time since infection (days)
         return .5*erfc((log(tnew)-(log(muWPV)-log(deltaShedding)*log(m_titerLevel)))/(sqrt(2.0)*log(sigmaWPV)));
     }
-    double peakShedding(){//age needs to be converted to months
-        if(m_age<newBorn){
+    double peakShedding(int age){//age needs to be converted to months
+        double ageInMonths = convertToMonths(age);
+        if(ageInMonths <newBorn){
             return Smax;
         }
         else{
-            return ((Smax-Smin)*exp((convertToMonths(newBorn)-(convertToMonths(m_age)))/tau)+Smin);
+            return ((Smax-Smin)*exp((newBorn-ageInMonths)/tau)+Smin);
         }
     }
 
-    double stoolViralLoad(double t){
+    double stoolViralLoad(double t, int age){
         const double tnew = convertToDays(t-m_timeAtInfection);
-        return max(pow(10.0,2.6),pow(10.0,((1.0-k*log2(m_titerLevel))*log(peakShedding())))*(exp(eta-(pow(nu,2.0)/2.0)-(pow(log(tnew)-eta,2.0)/(2.0*pow(nu+xsi*log(tnew),2.0))))/tnew));
+        return max(pow(10.0,2.6),pow(10.0,((1.0-k*log2(m_titerLevel))*log(peakShedding(age))))*(exp(eta-(pow(nu,2.0)/2.0)-(pow(log(tnew)-eta,2.0)/(2.0*pow(nu+xsi*log(tnew),2.0))))/tnew));
             //**units are in TCID50/g
     }
 
@@ -224,53 +211,48 @@ public:
     }
     void setDurationInfection(){
         //sets duration of infection, peak antibody level
-        m_durationInfection = (1/(antibodyGrowth - pathogenGrowth))*log(1+((antibodyGrowth - pathogenGrowth)*m_initialPathogen)/(double)(pathogenClearance*m_initialAntibody));
-        m_peakAntibody = m_initialAntibody*exp(antibodyGrowth*m_durationInfection);
+        m_durationInfection = (1/(antibodyGrowth - pathogenGrowth))*log(1+((antibodyGrowth - pathogenGrowth)*m_initialPathogen)/(double)(pathogenClearance*m_initialImmunityLevel));
+        m_peakImmunityLevel = m_initialImmunityLevel*exp(antibodyGrowth*m_durationInfection);
     }
-    double getPeakAntibody(){
-        return m_peakAntibody;
+    double getPeakImmunityLevel(){
+        return m_peakImmunityLevel;
     }
     void setInitialPathogen(double pat){
         m_initialPathogen = pat;
     }
     double timePeakPathogen(){
-        //assume this is the time individual sheds into environment
-        return (1/(antibodyGrowth - pathogenGrowth))*log((pathogenGrowth/antibodyGrowth)*(1+((antibodyGrowth-pathogenGrowth)*m_initialPathogen)/(pathogenClearance*m_initialAntibody)));
+        return (1/(antibodyGrowth - pathogenGrowth))*log((pathogenGrowth/antibodyGrowth)*(1+((antibodyGrowth-pathogenGrowth)*m_initialPathogen)/(pathogenClearance*m_initialImmunityLevel)));
     }
-    double getInitialAntibody(){
-        return m_initialAntibody;
+    double getInitialImmunityLevel(){
+        return m_initialImmunityLevel;
     }
-    void setInitialAntibody(double ant){
-        m_initialAntibody = ant;
+    void setInitialImmunityLevel(double ant){
+        m_initialImmunityLevel = ant;
     }
     double getInitialPathogen(){
         return m_initialPathogen;
     }
-    double getAntibodyLevel(double t){
-        //will this function name be confusing if we use it for both waning and boosting?
-        const double tnew = convertToDays(t);
-        if(t<=m_durationInfection){
-            m_antibodyLevel = m_initialAntibody*exp(antibodyGrowth*t);
+    double getImmunityLevel(double t){
+        const double tnew = convertToDays(t - m_timeAtInfection);
+        const double tnow = convertToDays(t);
+        if(m_pathogenLevel > 0){
+            m_immunityLevel = m_initialImmunityLevel*exp(antibodyGrowth*tnew);
         }
         else{
-            m_antibodyLevel = m_peakAntibody*pow((1+(r - 1)*pow(m_peakAntibody,(r-1))*antibodyDecay*(tnew-m_durationInfection)),(-1/(r-1)));
+            m_immunityLevel = m_peakImmunityLevel*pow((1+(r - 1)*pow(m_peakImmunityLevel,(r-1))*antibodyDecay*(tnow-m_durationInfection)),(-1/(r-1)));
         }
-        return m_antibodyLevel;
+        return m_immunityLevel;
     }
     double getPathogenLevel(double t){
         const double tnew = convertToDays(t);
-        if(tnew <= m_durationInfection){
-            m_pathogenLevel = m_initialPathogen*exp(pathogenGrowth*tnew) - (pathogenClearance*m_initialAntibody*(exp(antibodyGrowth*tnew)-exp(pathogenGrowth*tnew))/(antibodyGrowth-pathogenGrowth));
+        if(t <= (m_timeAtInfection + m_durationInfection)){
+            m_pathogenLevel = m_initialPathogen*exp(pathogenGrowth*tnew) - (pathogenClearance*m_initialImmunityLevel*(exp(antibodyGrowth*tnew)-exp(pathogenGrowth*tnew))/(antibodyGrowth-pathogenGrowth));
         }
         else{
             m_pathogenLevel = 0.0;
         }
         return m_pathogenLevel;
     }
-    /*void waningTeunis(double t){
-        const double tnew = convertToDays(t);
-        m_antibodyLevel = m_peakAntibody*pow((1+ (r - 1)*pow(m_peakAntibody,(r-1))*antibodyDecay*(tnew-m_durationInfection)),(-1/(r-1)));
-    }*/
 
 };
 
@@ -305,6 +287,7 @@ public:
     EventDriven_MassAction_Sim(const int n, const double beta, const double death, const double maxRunTime, const int wanIm, const double virIntWat,int seed=(random_device())()): rng(seed), N(n), BETA(beta), DEATH_RATE(death), maxRunTime(maxRunTime), waningImmunityScenario(wanIm), propVirusinWater(virIntWat),unif_real(0.0,1.0),unif_int(0,n-2),people_counter(0){
         people = vector<Person*>(n);
         deathTime = vector<double>(n);
+        birthTime = vector<double>(n);
         for (Person* &p: people) p = new Person(people_counter++);
         Now=0.0;
         ii=0;//counter for displaying events in queue
@@ -325,6 +308,8 @@ public:
         NonInfsum=n;
         IDCsum=0;
         IEsum=0;
+        environment = 0;
+        previousTime = 0;
         sheddingPeople.clear();
     }
 
@@ -344,14 +329,15 @@ public:
     const double propVirusinWater;
     
 
-    exponential_distribution<double> exp_beta;
-    exponential_distribution<double> exp_death;
+    exponential_distribution<double>  exp_beta;
+    exponential_distribution<double>  exp_death;
     uniform_real_distribution<double> unif_real;
-    uniform_int_distribution<int> unif_int;
+    uniform_int_distribution<int>     unif_int;
 
     //containers to keep track of various pieces of information
     vector<Person*> people;
     vector<double> deathTime;
+    vector<double> birthTime;
     priority_queue<Event, vector<Event>, compTime> EventQ;
     unordered_set<Person*> sheddingPeople;
     vector<int> ageAtFirstInfect;
@@ -380,7 +366,7 @@ public:
     vector<double> antTit50;
     vector<double> antTit100;
     vector<double> antTit2048;
-    vector<int> ageDist;
+    vector<int>    ageDist;
 
 
     //used to keep track of number of events that occur
@@ -391,8 +377,7 @@ public:
 
     //used to determine how often to add compartment counts to above vectors
     double delta;
-    
-    double ageSum;
+
 
 
     void runSimulation(){
@@ -403,11 +388,12 @@ public:
 
         while(nextEvent() and EventQ.top().time < maxRunTime) {
         }
-        /*if(EventQ.top().time >= maxRunTime){
+        if(EventQ.top().time >= maxRunTime){
             for(Person* p: people){
-                ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
+                assert((int)((calculateCurrentAge(p))/lengthAgeBuckets) < 20);
+                ageDist[(int)((calculateCurrentAge(p))/lengthAgeBuckets)]++;
             }
-        }*/
+        }
     }
 
     void randomizePopulation(int infected){
@@ -424,11 +410,11 @@ public:
             discrete_distribution<int> age {18.33,15.16,12.54,10.38,8.58,7.10,5.88,4.86,4.02,3.33,2.75,2.28,1.88,1.56,1.29,1.07,0.88,0.73,0.60,0.50};
             int personAge = age(rng);
             p->setAge(chooseAge(personAge,"age"));
-            ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
-            if(p->getAge()<=5){
+            
+            if(calculateCurrentAge(p)<=5){
                 p->setAgeClass(AGE5);
             }
-            else if(p->getAge()<=15){
+            else if(calculateCurrentAge(p)<=15){
                 p->setAgeClass(AGE15);
             }
             else{
@@ -436,17 +422,16 @@ public:
             }
 
             p->setInfectionStatus(NA);
-            p->setInitialTiterLevel(maxTiter);
-            p->setTimeAtInfection(numeric_limits<double>::max());
             deathTimeEvent(p);
+            birthTime[p->getIndex()] = Now;
+            p->setTimeAtInfection(numeric_limits<double>::max());
             
-            //set aging time
-            p->setPreviousAgingTime(Now);
-            double nextAgeEvent = Now + 1.0;
-            //if(nextAgeEvent < deathTime[p->getIndex()]){
-                EventQ.emplace(nextAgeEvent,AGING,p);
-                event_counter[AGING]++;
-            //}
+            if(waningImmunityScenario == FAMULARE){
+                p->setInitialTiterLevel(maxTiter);
+            }
+            else if(waningImmunityScenario == TEUNIS){
+                p->setInitialImmunityLevel(1.0);
+            }
 
             //set environment contact--occurs daily
             //random so that at initialization everyone isn't contacting at exact same time
@@ -467,15 +452,15 @@ public:
         }
         
         for(int i = 0; i < infected; i++){
-            if(waningImmunityScenario==1){//maybe it would be better to make this a better descriptor than 1 for Fam and 2 for Teunis
+            if(waningImmunityScenario == FAMULARE){
                 NonInfsum--;
                 IDCsum++;
                 infectByDirectContactFamulare(people[i]);
             }
-            else{
+            else if(waningImmunityScenario == TEUNIS){
                 NonInfsum--;
                 IDCsum++;
-                people[i]->setInitialPathogen(10);//input variable to change
+                people[i]->setInitialPathogen(1000);//input variable to change
                 infectByDirectContactTeunis(people[i]);//infect first "infected" number of people in vector
             }
         }
@@ -555,17 +540,24 @@ public:
     }
     
     int chooseAge(int personAge,string event){
-        int ageGroupIndex;
+        int ageGroupIndex = numeric_limits<int>::max();
+        //chooses age at death
         if(event=="death"){
             discrete_distribution<int> ageVec(age_Death[personAge].begin(),age_Death[personAge].end());
             ageGroupIndex = ageVec(rng);
         }
+        //chooses age at initialization
         else if(event=="age"){
             discrete_distribution<int> ageVec(age_Aging[personAge].begin(),age_Aging[personAge].end());
             ageGroupIndex = ageVec(rng);
         }
+        assert(ageGroupIndex != numeric_limits<int>::max());
         int age = personAge*lengthAgeBuckets + ageGroupIndex;
         return age;
+    }
+    
+    int calculateCurrentAge(Person* p){
+        return (int)(p->getAge() + Now - birthTime[p->getIndex()]);
     }
     
     void infectByDirectContactFamulare(Person* p) {
@@ -573,9 +565,9 @@ public:
         //update number of infections
         p->setNumInfectionsDC(p->getNumInfectionsDC()+1);
         numDCInf++;
-        //find average age at first infection
+        //find average age at first infection (starts counting after half time to let dynamics settle)
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv())==1 && Now >= maxRunTime/2){
-            ageAtFirstInfect.push_back(p->getAge());
+            ageAtFirstInfect.push_back(calculateCurrentAge(p));
         }
         p->setInfectionStatus(IDC);
         p->setTimeAtInfection(Now);
@@ -607,24 +599,31 @@ public:
         return;
     }
     void infectByDirectContactTeunis(Person* p){
+        
+        //set initial immunity level based on previous immunity level -- setDurationInfection uses to determine boosting
+        if((p->getNumInfectionsDC() + p->getNumInfectionsEnv()) > 1){
+            p->setInitialImmunityLevel(p->getImmunityLevel(Now));
+        }
 
         //update number of infections
         p->setNumInfectionsDC(p->getNumInfectionsDC()+1);
         numDCInf++;
-        //find average age at first infection
+        p->setTimeAtInfection(Now);
+        
+        //find average age at first infection (starts counting after half time to let dynamics settle)
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv())==1 && Now >= maxRunTime/2){
-            ageAtFirstInfect.push_back(p->getAge());
+            ageAtFirstInfect.push_back(calculateCurrentAge(p));
         }
         p->setInfectionStatus(IDC);
         p->setDurationInfection();
 
         //set time to shedding (able to cause infections) if it occurs before death
         double sheddingTime = Now + (1/(double)365);
-        if(sheddingTime < deathTime[p->getIndex()]){
+        p->setTimeToShed(sheddingTime);
+        if(p->getTimeToShed() < deathTime[p->getIndex()]){
             EventQ.emplace(sheddingTime, BEGIN_SHEDDING,p);//assume shedding begins a day later
             event_counter[BEGIN_SHEDDING]++;
         }
-        p->setTimeToShed(sheddingTime);//need to prevent simultaneous infections
 
         //set time to recovery if it occurs before death
         double Tr = p->getDurationInfection() + Now;
@@ -643,10 +642,6 @@ public:
             Tc+=exp_beta(rng);
         }
 
-        //time to shed into environment
-        //EventQ.emplace(p->timePeakPathogen(),SHED_INTO_ENVIRONMENT,p);
-        //event_counter[SHED_INTO_ENVIRONMENT]++;
-
     }
 
     void infectByEnvironment(Person* p) {
@@ -656,11 +651,11 @@ public:
         numEInf++;
         //find average age at first infection
         if((p->getNumInfectionsDC() + p->getNumInfectionsEnv())==1 && Now >= maxRunTime/2){
-            ageAtFirstInfect.push_back(p->getAge());
+            ageAtFirstInfect.push_back(calculateCurrentAge(p));
         }
         p->setInfectionStatus(IE);
         p->setTimeAtInfection(Now);
-        p->setTiterLevel(11.0*p->getTiterLevel());//boost 10 fold
+        
 
         //set time to shedding (able to cause infections) if it occurs before death
         double sheddingTime = Now + (1/(double)365);//assume shedding begins a day later--can't be instantaneous
@@ -673,16 +668,43 @@ public:
         // time to next human-human contact
         exponential_distribution<double> exp_beta(BETA); //BETA is contact rate/individual/year
         double Tc = exp_beta(rng) + Now;
-
-        while (p->probShedding(Tc)>WPVrecThresh) {
-            if((Tc > sheddingTime) and (Tc < deathTime[p->getIndex()])){//only make infectious contacts after shedding begins and before death
-                EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
-                event_counter[INFECTIOUS_CONTACT]++;
+        
+        //initialize recovery time to be set depending on waning immunity scenario
+        double Tr = numeric_limits<double>::max();
+        
+        if(waningImmunityScenario == FAMULARE){
+            //boost immunity 10 fold if Famulare waning model
+            p->setTiterLevel(11.0*p->getTiterLevel());
+            
+            //determine infectious contacts (only can occur after shedding begins and before death)
+            while (p->probShedding(Tc)>WPVrecThresh) {
+                if((Tc > p->getTimeToShed()) and (Tc < deathTime[p->getIndex()])){
+                    EventQ.emplace(Tc,INFECTIOUS_CONTACT,p);
+                    event_counter[INFECTIOUS_CONTACT]++;
+                }
+                Tc += exp_beta(rng);
             }
-            Tc += exp_beta(rng);
+            //set time to recovery if it occurs before death
+            Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
         }
-        //set time to recovery if it occurs before death
-        double Tr = Tc;//once the contact time is late enough such that the probability of shedding is below WPVrecThresh then it is a recovery time (trying to make it not look like a bug)
+        else if(waningImmunityScenario == TEUNIS){
+            //set initial immunity level to determine boosting amount
+            if((p->getNumInfectionsDC() + p->getNumInfectionsEnv()) > 1){
+                p->setInitialImmunityLevel(p->getImmunityLevel(Now));
+            }
+            p->setDurationInfection();
+            //set time to recovery
+            Tr = p->getDurationInfection() + Now;
+            
+            //determine infectious contacts
+            while ((Tr>Tc) and (Tc < deathTime[p->getIndex()])) {//if contact occurs before recovery and death
+                EventQ.emplace(Tc, INFECTIOUS_CONTACT,p);
+                event_counter[INFECTIOUS_CONTACT]++;
+                Tc+=exp_beta(rng);
+            }
+        }
+
+        assert(Tr != numeric_limits<double>::max());
         if(Tr < deathTime[p->getIndex()]){
             EventQ.emplace(Tr,INFECTION_RECOVERY,p);
             event_counter[INFECTION_RECOVERY]++;
@@ -707,19 +729,22 @@ public:
     void deathTimeEvent(Person* p){
         
         double rand = unif_real(rng);
-        int deathAgeGroup;//do i want to put a default value just in case?
+        int deathAgeGroup = numeric_limits<int>::max();//do i want to put a default value just in case?
         for(unsigned int i = 0; i < deathCDF.size(); i++){
             if(rand < deathCDF[i]){
                 deathAgeGroup = i;
                 break;
             }
         }
+        assert(deathAgeGroup != numeric_limits<int>::max());
         int deathAge = chooseAge(deathAgeGroup,"death");
-        int timeToDeath = deathAge - p->getAge();
-        assert(timeToDeath + p->getAge() <=99);
+        //calculate age to set age at death
+        int timeToDeath = deathAge - calculateCurrentAge(p);
+        assert((timeToDeath + calculateCurrentAge(p)) <=99);
+        
         double Td;
         if(timeToDeath < 0){
-            Td = Now+.01;
+            Td = Now;
         }
         else{
             Td = timeToDeath + Now;
@@ -732,7 +757,7 @@ public:
     
     void infectiousContact(Person* p){
         switch (waningImmunityScenario) {
-            case 1://Famulare waning
+            case FAMULARE:
             {
                 //choose person to contact
                 int contact_idx = unif_int(rng);
@@ -757,7 +782,7 @@ public:
                 break;
                 
             }
-            case 2://Teunis waning
+            case TEUNIS:
             {
                 
                 //choose person to contact
@@ -766,11 +791,14 @@ public:
                 Person* contact = people[contact_idx];
                 
                 //no simultaneous infections
-                if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
+                //if(contact->getTimeToShed() < Now and sheddingPeople.count(contact)==0){
+                if((contact->getTimeToShed() < Now or contact->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(contact)==0){
                     
-                    //check susceptibility
+                    
                     double dose = p->getPathogenLevel(Now);//assumes all of individual's pathogen is transmitted
-                    if((pathogenGrowth*dose - pathogenClearance*contact->getAntibodyLevel(Now)) > 0){
+                    
+                    //check susceptibility (is pathogen concentration greather than immunity level?)
+                    if(((dose*exp(pathogenGrowth*Now)- (pathogenClearance/(antibodyGrowth-pathogenGrowth))*(exp(antibodyGrowth*Now)-exp(pathogenGrowth*Now)))- p->getImmunityLevel(Now)*exp(antibodyGrowth*Now)) > 0){
                         NonInfsum--;
                         IDCsum++;
                         infectByDirectContactTeunis(contact);
@@ -788,19 +816,16 @@ public:
     }
     
     void infectionRecovery(Person* p){
-        //no else statement to prevent dead person from fulfilling recovery time
+        //no else statement to incorporate vacc later
         if(p->getInfectionStatus()==IDC){
             IDCsum--;
-            NonInfsum++;
-            sheddingPeople.erase(p);
-            p->setInfectionStatus(NA);
         }
         else if(p->getInfectionStatus()==IE){
             IEsum--;
-            NonInfsum++;
-            sheddingPeople.erase(p);
-            p->setInfectionStatus(NA);
         }
+        NonInfsum++;
+        sheddingPeople.erase(p);
+        p->setInfectionStatus(NA);
     }
     
     void environmentContact(Person* p){
@@ -808,23 +833,43 @@ public:
         virusCon = propVirusinWater*environment;
         
         //assumes all virus particles shed end up in water source -- will relax this assumption in another code iteration
-        envDose = 2*virusCon; //2 is num L water drank per day
+        envDose = numLitersDrinkWater*virusCon;
         
         //no simultaneous infections
         if((p->getTimeToShed() < Now or p->getTimeToShed()== numeric_limits<double>::max()) and sheddingPeople.count(p)==0){
             
             //check susceptibility
-            double r2 = unif_real(rng);
-            if(r2<p->probInfGivenDoseFamulare(IE)){
-                NonInfsum--;
-                IEsum++;
-                infectByEnvironment(p);
+            if(waningImmunityScenario == FAMULARE){
+                //wane immunity if applicable
+                if(p->getTimeAtInfection()!=numeric_limits<double>::max()){
+                    p->waningFamulare(Now);
+                }
+                double r2 = unif_real(rng);
+                if(r2<p->probInfGivenDoseFamulare(IE)){
+                    NonInfsum--;
+                    IEsum++;
+                    infectByEnvironment(p);
+                }
+            }
+            else if(waningImmunityScenario == TEUNIS){
+                //is pathogen concentration greater than immunity level?
+                if(((envDose*exp(pathogenGrowth*Now)- (pathogenClearance/(antibodyGrowth-pathogenGrowth))*(exp(antibodyGrowth*Now)-exp(pathogenGrowth*Now)))- p->getImmunityLevel(Now)*exp(antibodyGrowth*Now)) > 0){
+                    NonInfsum--;
+                    IEsum++;
+                    infectByEnvironment(p);
+                }
             }
         }
         
         //update environment with additions
         if(sheddingPeople.count(p) > 0){
-            environment+=gramsFeces*p->stoolViralLoad(Now);
+            if(waningImmunityScenario == FAMULARE){
+                environment+=gramsFeces*p->stoolViralLoad(Now,calculateCurrentAge(p));
+            }
+            else if(waningImmunityScenario == TEUNIS){
+                //assumes equal pathogen level shed is equal to pathogen level in individual -- probably should change this assumption
+                environment += p->getPathogenLevel(Now);
+            }
         }
         
         //set next time to contact environment if it occurs before death
@@ -857,14 +902,17 @@ public:
                 NonInfsum++;
                 break;
             }
+            default:
+            {
+                cout<<"Invalid input\n";
+                exit(-1);
+                break;
+            }
         }
         sheddingPeople.erase(p);
-        ageDist[(int)(p->getAge()/lengthAgeBuckets)]--;
         p->reset(waningImmunityScenario);
-        ageDist[(int)(p->getAge()/lengthAgeBuckets)]++;
         deathTimeEvent(p);
-        p->setPreviousAgingTime(Now);
-        agingTime(p);
+        birthTime[p->getIndex()] = Now;
     }
     
     void updateEnvironment(double timeStep){
@@ -873,14 +921,6 @@ public:
             if(environment < 0){
                 environment = 0;
             }
-        }
-    }
-    
-    void agingTime(Person* p){
-        double nextAgeEvent = Now + 1.0;
-        if(nextAgeEvent < deathTime[p->getIndex()]){
-            EventQ.emplace(nextAgeEvent, AGING,p);
-            event_counter[AGING]++;
         }
     }
 
@@ -926,7 +966,6 @@ public:
           cout<<"\tENVIRONMENT_CONTACT " << event_counter[ENVIRONMENT_CONTACT]<< endl;
           cout<<"\tCHECK_ENVIRONMENT " << event_counter[CHECK_ENVIRONMENT]<< endl;
           cout << "\tDEATH: " << event_counter[DEATH] << endl;
-          cout << "\tAGING: "<< event_counter[AGING] << endl;
           counter+=.1;
           ii++;
           }*/
@@ -936,40 +975,14 @@ public:
         updateEnvironment(timeStep);
 
         Person* individual = event.person;
-        //if(event.type==INFECTIOUS_CONTACT and sheddingPeople.count(individual)>0){
         if(event.type==INFECTIOUS_CONTACT){
             infectiousContact(individual);
-
         }
         else if(event.type==INFECTION_RECOVERY){
-        //else if (event.type==INFECTION_RECOVERY and sheddingPeople.count(individual)>0) {
             infectionRecovery(individual);
         }
         else if(event.type==BEGIN_SHEDDING){
-        //else if(event.type == BEGIN_SHEDDING and individual->getInfectionStatus()!=NA){
             sheddingPeople.insert(individual);
-        }
-        else if(event.type == AGING){
-            if(individual->getPreviousAgingTime()<=Now-1.0){
-                agingTime(individual);//sets next time to age
-                individual->setAge(individual->getAge() + 1);
-                individual->setPreviousAgingTime(Now);
-                if((int)(individual->getAge()/lengthAgeBuckets) > (int)((individual->getAge()-1)/lengthAgeBuckets) and individual->getAge()-1 >=0){
-                    ageDist[(int)(individual->getAge()/lengthAgeBuckets)]++;
-                    ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]--;
-                }
-                assert(ageDist[(int)((individual->getAge()-1)/lengthAgeBuckets)]>=0);
-                //sets age class - may be useful later
-                if(individual->getAge()<=5){
-                    individual->setAgeClass(AGE5);
-                }
-                else if(individual->getAge()<=15){
-                    individual->setAgeClass(AGE15);
-                }
-                else{
-                    individual->setAgeClass(AGE100);
-                }
-            }
         }
         else if(event.type == ENVIRONMENT_CONTACT){
             environmentContact(individual);

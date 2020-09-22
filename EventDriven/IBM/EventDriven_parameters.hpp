@@ -26,6 +26,7 @@ const double vaccRate             = 0.01;
 const double WPVrecThresh         = 0.17;//used mean shedding duration (for WPV) in prob shedding at t function .17
 const double OPVrecThresh         = 0.24;//used mean shedding duration (for OPV)in prob shedding at t function .24
 const double propToVacc           = 0.25;
+const double numLitersDrinkWater = 2;
 
 //Environment contact parameters
 const double inactivationRate     = 2*pow(10,0.223161);//TCID50 per day assumes surface water at 22 deg C (converted from PFU to TCID5)(Hurst,1989)
